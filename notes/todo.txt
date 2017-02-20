@@ -1,0 +1,13 @@
+* how does interpn for velocity behave relative to the 1-D interpolation used in particulator-java?
+
+* make par_concatSteps read from a file sequence
+
+* look carefully at x,y vs lon,lat for large grids. For now, working only in
+the units used in the grid, calling these x,y, and converting velocities for
+each particle at each timestep. I don't see why this wouldn't work, but it's
+not what I ended up doing in the Processing version of particulator.
+ 
+* eventually: check whether this form of parallelization has good scaling, vs. just splitting the entire expt and running multiple instances of par_integrate (which does mean loading each model frame more than once)
+
+* allow sigmaTrapLevel or zTrapLevel to be a two-element vector, meaning an average over a range
+

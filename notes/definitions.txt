@@ -1,0 +1,17 @@
+x,y		the native horizontal coordinates of the model;
+		not necessarily the same units as u,v
+
+z		vertical position (presumably in m)
+sigma	relative vertical position, -1 for seabed, 0 for surface
+H		bottom depth, from mean sea level. sigma = -1 <==> z = -H
+zeta	free surface height. sigma = 0 <==> z = zeta
+
+t		time, in units consistent with u,v,w
+u,v,w	advective velocities in x,y,z directions
+wdiff	random-walk vertical velocity representing diffusion
+dksdz	a first-order correction to the vertical diffusion velocity
+		(a "random displacement" scheme)--in practice diffusion should always
+		be represented as (wdiff + dksdz)
+
+n,k,j,i	indices in t,z,y,x directions
+N,K,J,I	size of a matrix in t,z,y,x directions
