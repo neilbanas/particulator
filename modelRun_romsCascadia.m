@@ -1,4 +1,4 @@
-classdef modelRun_romsCascadia < par_modelRun
+classdef modelRun_romsCascadia < modelRun
 
 	properties
 		filename % list of files where output is stored 
@@ -11,31 +11,37 @@ classdef modelRun_romsCascadia < par_modelRun
 	methods
 	
 		function run = modelRun_romsCascadia(dirname);
-			outOfBoundsValue = 0; % set this to nan to have interp functions
-								  % fail obviously, 0 to have them fail
-								  % harmlessly
+			run.outOfBoundsValue = 0; % set this to nan to have interp functions
+								  	  % fail obviously, 0 to have them fail
+								  	  % harmlessly
 			
 			% locate file list
-			thefiles = dir([basefilename '*.nc']);
+			thefiles = dir([dirname 'ocean_his_*.nc']);
 			run.filename = {thefiles.name};
-			numFrames = length(run.filename);
-			run.filestep = ones(numFrames,1);
+			if isempty(run.filename)
+				warning(['no files found at ' dirname 'ocean_his_*.nc']);
+			end
+			run.numFrames = length(run.filename);
+			run.filestep = ones(run.numFrames,1);
+			for i=1:run.numFrames
+				run.filename{i} = [dirname run.filename{i}];
+			end
 			
 			% look in first and last files to get times
-			nc = netcdf.open(filename{1},'NOWRITE');
+			nc = netcdf.open(run.filename{1},'NOWRITE');
 			t0 = netcdf.getVar(nc,netcdf.inqVarID(nc,'ocean_time'),'double');
 			units = netcdf.getAtt(nc,netcdf.inqVarID(nc,'ocean_time'),'units');
 			netcdf.close(nc);
-			nc = netcdf.open(filename{1},'NOWRITE');
+			nc = netcdf.open(run.filename{end},'NOWRITE');
 			t1 = netcdf.getVar(nc,netcdf.inqVarID(nc,'ocean_time'),'double');
 			netcdf.close(nc);
 			timeref = strrep(units, 'seconds since ', '');
 			timeref = datenum(timeref,'yyyy-mm-dd HH:MM:SS');
-			run.t = linspace(t0,t1,numFrames) ./ 86400 + timeref;
+			run.t = linspace(t0,t1,run.numFrames) ./ 86400 + timeref;
 			run.loadedN = [nan nan];
 			
 			% load grid from first file
-			nc = netcdf.open(filename{1},'NOWRITE');
+			nc = netcdf.open(run.filename{1},'NOWRITE');
 			grid.lon = netcdf.getVar(nc,netcdf.inqVarID(nc,'lon_rho'),'double');
 			grid.lat = netcdf.getVar(nc,netcdf.inqVarID(nc,'lat_rho'),'double');
 			grid.lonu = netcdf.getVar(nc,netcdf.inqVarID(nc,'lon_u'),'double');
@@ -53,11 +59,16 @@ classdef modelRun_romsCascadia < par_modelRun
 			grid.maskv = ...
 					netcdf.getVar(nc,netcdf.inqVarID(nc,'mask_v'),'double');
 			grid.H = ...
-					netcdf.getVar(nc,netcdf.inqVarID(nc,'H'),'double');
+					netcdf.getVar(nc,netcdf.inqVarID(nc,'h'),'double');
 			netcdf.close(nc);
-			grid.Hu = interp2(grid.lon,grid.lat,grid.H,grid.lonu,grid.latu);
-			grid.Hv = interp2(grid.lon,grid.lat,grid.H,grid.lonv,grid.latv);
-			grid.bounds = [grid.lonu([1 end]) grid.latv([1 end])];
+			grid.Hu = interp2(grid.lat,grid.lon,grid.H,grid.latu,grid.lonu);
+			grid.Hv = interp2(grid.lat,grid.lon,grid.H,grid.latv,grid.lonv);
+			grid.bounds = [grid.lonu(1,[1 end])' grid.latv([1 end],1)];
+			
+			% construct 3d meshes for rho,u,v,w grids so this doesn't need to
+			% be done for each interpolation
+			grid.rho3.cs = ...
+			
 			run.grid = grid;
 		end % constructor
 		
@@ -83,7 +94,7 @@ classdef modelRun_romsCascadia < par_modelRun
 			run.loadedN(2) = n;
 		end
 		
-		function run = advance(run,n,tracers);
+		function run = advanceTo(run,n,tracers);
 			run.F0 = run.F1;
 			run.loadFrame(n,tracers);
 			run.loadedN = [run.loadedN(2) n];
@@ -95,33 +106,33 @@ classdef modelRun_romsCascadia < par_modelRun
 
 		function H = interpH(run,y,x);
 			isin = run.in_xy_bounds(y,x);
-			H = outOfBoundsValue .* ones(size(x));
+			H = run.outOfBoundsValue .* ones(size(x));
 			if ~isempty(isin)
-				H(isin) = interp2(run.grid.lon, run.grid.lat, run.grid.H, ...
-							      x(isin), y(isin));
+				H(isin) = interp2(run.grid.lat, run.grid.lon, run.grid.H, ...
+							      y(isin), x(isin));
 			end
 		end
 		
 		function zeta = interpZeta(run,t,y,x);
 			isin = run.in_xy_bounds(y,x);
-			zeta = outOfBoundsValue .* ones(size(x));
+			zeta = run.outOfBoundsValue .* ones(size(x));
 			if ~isempty(isin)
-				zeta0 = interp2(run.grid.lon, run.grid.lat, run.F0.zeta, ...
-								x(isin), y(isin));
-				zeta1 = interp2(run.grid.lon, run.grid.lat, run.F1.zeta, ...
-								x(isin), y(isin));
+				zeta0 = interp2(run.grid.lat, run.grid.lon, run.F0.zeta, ...
+								y(isin), x(isin));
+				zeta1 = interp2(run.grid.lat, run.grid.lon, run.F1.zeta, ...
+								y(isin), x(isin));
 				zeta(isin) = run.tinterp(t, zeta0, zeta1);
 			end
 		end
 		
 		function mask = interpMask(run,t,y,x);
 			isin = run.in_xy_bounds(y,x);
-			mask = outOfBoundsValue .* ones(size(x));
+			mask = run.outOfBoundsValue .* ones(size(x));
 			if ~isempty(isin)
-				mask0 = interp2(run.grid.lon, run.grid.lat, run.F0.mask, ...
-								x(isin), y(isin));
-				mask1 = interp2(run.grid.lon, run.grid.lat, run.F1.mask, ...
-								x(isin), y(isin));
+				mask0 = interp2(run.grid.lat, run.grid.lon, run.F0.mask, ...
+								y(isin), x(isin));
+				mask1 = interp2(run.grid.lat, run.grid.lon, run.F1.mask, ...
+								y(isin), x(isin));
 				mask(isin) = run.tinterp(t, mask0, mask1);
 			end
 		end
@@ -129,7 +140,7 @@ classdef modelRun_romsCascadia < par_modelRun
 		function u = interpU(run,t,sigma,y,x);
 			isin = run.in_xy_bounds(y,x);
 			sigma1 = max(min(sigma,0),-1);
-			u = outOfBoundsValue .* ones(size(x));
+			u = run.outOfBoundsValue .* ones(size(x));
 			if ~isempty(isin)
 				u0 = interpn(run.grid.cs, run.grid.latu, run.grid.lonu, ...
 							 run.F0.u, sigma1(isin), y(isin), x(isin));
@@ -142,7 +153,7 @@ classdef modelRun_romsCascadia < par_modelRun
 		function v = interpV(run,t,sigma,y,x);
 			isin = run.in_xy_bounds(y,x);
 			sigma1 = max(min(sigma,0),-1);
-			v = outOfBoundsValue .* ones(size(x));
+			v = run.outOfBoundsValue .* ones(size(x));
 			if ~isempty(isin)
 				v0 = interpn(run.grid.cs, run.grid.latv, run.grid.lonv, ...
 							 run.F0.v, sigma1(isin), y(isin), x(isin));
@@ -155,7 +166,7 @@ classdef modelRun_romsCascadia < par_modelRun
 		function w = interpW(t,sigma,y,x);
 			isin = run.in_xy_bounds(y,x);
 			sigma1 = max(min(sigma,0),-1);
-			w = outOfBoundsValue .* ones(size(x));
+			w = run.outOfBoundsValue .* ones(size(x));
 			if ~isempty(isin)
 				w0 = interpn(run.grid.csw, run.grid.lat, run.grid.lon, ...
 							 run.F0.w, sigma1(isin), y(isin), x(isin));
@@ -168,7 +179,7 @@ classdef modelRun_romsCascadia < par_modelRun
 		function Ks = interpKs(t,sigma,y,x);
 			isin = run.in_xy_bounds(y,x);
 			sigma1 = max(min(sigma,0),-1);
-			Ks = outOfBoundsValue .* ones(size(x));
+			Ks = run.outOfBoundsValue .* ones(size(x));
 			if ~isempty(isin)
 				Ks0 = interpn(run.grid.csw, run.grid.lat, run.grid.lon, ...
 							  run.F0.Ks, sigma1(isin), y(isin), x(isin));
@@ -181,13 +192,13 @@ classdef modelRun_romsCascadia < par_modelRun
 		function c = interpTracer(run,name,t,sigma,y,x);
 			isin = run.in_xy_bounds(y,x);
 			sigma1 = max(min(sigma,0),-1);
-			c = outOfBoundsValue .* ones(size(x));
+			c = run.outOfBoundsValue .* ones(size(x));
 			if ~isempty(isin)
 				if ndims(run.F0(name))==2 % 2d
-					c0 = interp2(run.grid.lon, run.grid.lat, run.F0.(name), ...
-								 x(isin), y(isin));
-					c1 = interp2(run.grid.lon, run.grid.lat, run.F1.(name), ...
-								 x(isin), y(isin));
+					c0 = interp2(run.grid.lat, run.grid.lon, run.F0.(name), ...
+								 y(isin), x(isin));
+					c1 = interp2(run.grid.lat, run.grid.lon, run.F1.(name), ...
+								 y(isin), x(isin));
 					c(isin) = run.tinterp(t, c0, c1);				
 				else % 3d
 					c0 = interpn(run.grid.cs, run.grid.lat, run.grid.lon, ...

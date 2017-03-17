@@ -18,10 +18,10 @@ rel.tracers = {};
 rel.dt_per_DT = 2; % internal timesteps per frame of saved model output
 
 % overwrite with specified name-value pairs
-fields = varargin{1:2:end};
-vals = varargin{2:2:end};
+fields = {varargin{1:2:end}};
+vals = {varargin{2:2:end}};
 for i=1:length(fields)
-	rel.(fields{i}) = val{i};
+	rel.(fields{i}) = vals{i};
 end
 
 % make sure everything is consistent. Anything that requires the model run

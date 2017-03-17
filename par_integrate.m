@@ -16,30 +16,31 @@ steps = [];
 saveToVar = nargout > 0;
 
 % frame numbers (in the model run's terms) that span the particle integration
-n00 = floor(min(interp1(run.t, 1:run.numFrames, rel.t0)));
-n11 = ceil(max(interp1(run.t, 1:run.numFrames, rel.t1)));
+n00 = floor(min(interp1(run.t, 1:run.numFrames, rel.t0(:))));
+n11 = ceil(max(interp1(run.t, 1:run.numFrames, rel.t1(:))));
 nn = n00:n11;
 
 % load the initial frame
 run.loadFrame(n00,rel.tracers);
+run.advanceTo(n00,rel.tracers);
 % set up the initial set of particles--as if trajectories had previously been
 % integrated to n00
 s1.n = nn(1);
-s1.t = tt(1);
+s1.t = run.t(nn(1));
 s1.x = rel.x0;
 s1.y = rel.y0;
 if ~isempty(rel.sigma0) & isempty(rel.z0)
-	s1.sigma0 = rel.sigma0;
+	s1.sigma = rel.sigma0;
 elseif isempty(rel.sigma0) & ~isempty(rel.z0)
-	s1.z0 = rel.z0;
+	s1.z = rel.z0;
 elseif ~isempty(rel.sigma0) & ~isempty(rel.z0)
 	warning('either sigma0 or z0 should be empty. keeping sigma0');
-	s1.z0 = cs2z(rel.sigma0,rel);
+	s1.z = cs2z(rel.sigma0,rel);
 else isempty(rel.sigma0) & isempty(rel.z0)
 	if ~isempty(rel.zTrapLevel)
-		s1.z0 = rel.zTrapLevel .* ones(size(s1.x));
+		s1.z = rel.zTrapLevel .* ones(size(s1.x));
 	elseif ~isempty(rel.sigmaTrapLevel)
-		s1.sigma0 = rel.sigmaTrapLevel .* ones(size(s1.x));
+		s1.sigma = rel.sigmaTrapLevel .* ones(size(s1.x));
 	else
 		error('can''t find sigma0 or z0 or any other clues.');
 	end
@@ -51,7 +52,7 @@ saveStep(s1,1,saveToVar,steps,basefilename);
 
 % main loop
 for ni = 2:length(nn)
-	run.advance(tracers);
+	run.advanceTo(nn(ni),rel.tracers);
 
 	if verbose
 		disp(nn(ni));
@@ -107,14 +108,14 @@ elseif ~isempty(rel.sigmaTrapLevel)
 	s.z = sigma2z(s.sigma, s.H, s.zeta);
 else
 end
-s.u = run.interpU(s.t, s.sigma, s.y, s.z);
-s.v = run.interpV(s.t, s.sigma, s.y, s.z);
-s.w = run.interpW(s.t, s.sigma, s.y, s.z);
+s.u = run.interpU(s.t, s.sigma, s.y, s.x);
+s.v = run.interpV(s.t, s.sigma, s.y, s.x);
+s.w = run.interpW(s.t, s.sigma, s.y, s.x);
 s.uScaled = run.scaleU(s.u, s.y, s.x);
 s.vScaled = run.scaleV(s.v, s.y, s.x);
 for i=1:length(rel.tracers)
 	s.(rel.tracers{i}) = run.interpTracer(rel.tracers{i}, ...
-							s.t, s.sigma, s.y, s.z);
+							s.t, s.sigma, s.y, s.x);
 end
 if rel.diffusive
 	% diffusion gradient dKs/dz
@@ -167,7 +168,7 @@ s1.t = s0.t + dt;
 % ------------------------------------------------------------------------------
 function blocks = disassemble(s);
 % splits the step _s_ into a number of blocks for parallel integration.
-NP = length(s.x));
+NP = length(s.x);
 NB = gcp.NumWorkers;
 lim = [0 (1:NB).*round(NP/NB)]; % block i runs from lim(i-1)+1 to lim(i)
 fields = fieldnames(s);

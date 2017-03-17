@@ -17,6 +17,8 @@ classdef modelRun < handle
 					% loadedN(2) - loadedN(1) = 1, so that
 					% diff(t(loadedN)) * release.dt_per_DT is the timestep
 					% for particle integration
+					
+		grid		% model grid (details completely model-dependent)
 	end
 	
 	methods
@@ -25,7 +27,7 @@ classdef modelRun < handle
 	
 		function run = loadFrame(run,n,tracers);
 		end
-		function run = advance(run,tracers);
+		function run = advanceTo(run,n,tracers);
 		end
 		
 		function H = interpH(run,y,x);
