@@ -1,5 +1,20 @@
 classdef modelRun_romsCascadia < modelRun
 
+	% for working with output from MoSSea and Cascadia (PNWTOX) runs.
+	% assumes a stretched Cartesian grid, and one output frame per file
+	% (the _filestep_ property isn't used yet).
+	%
+	% unlike older code like 'post_tools' which was built around the snctools
+	% for reading netcdfs, this code, using matlab's native netcdf library,
+	% returns variables with dimensions [lon lat depth], in that order.
+	% accordingly, calls to interp2 for 2D variables look like
+	% 	interp2(y,x,H,yi,xi)
+	% and calls to interpn for 3D variables look like
+	%	interpn(x,y,sigma,S,xi,yi,sigmai)
+	% interpolation in time is done by interpolating in (x,y,sigma) at each of 
+	% the currently two loaded frames and then interpolating in 1D in time 
+	% between the results.
+
 	properties
 		filename % list of files where output is stored 
 		filestep % if more than one model time is stored per file,
