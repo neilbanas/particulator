@@ -10,10 +10,12 @@ function steps = par_integrate(rel,run,basefilename);
 % basefilename1.mat, basefilename2.mat,....
 
 parallel = 0;
+verbose = 1;
+
 
 if nargin<2, basefilename = ''; end
 steps = [];
-saveToVar = nargout > 0;
+saveToVar = (nargout > 0);
 
 % frame numbers (in the model run's terms) that span the particle integration
 n00 = floor(min(interp1(run.t, 1:run.numFrames, rel.t0(:))));
@@ -31,24 +33,28 @@ s1.x = rel.x0;
 s1.y = rel.y0;
 if ~isempty(rel.sigma0) & isempty(rel.z0)
 	s1.sigma = rel.sigma0;
+	s1.z = [];
 elseif isempty(rel.sigma0) & ~isempty(rel.z0)
 	s1.z = rel.z0;
+	s1.sigma = [];
 elseif ~isempty(rel.sigma0) & ~isempty(rel.z0)
-	warning('either sigma0 or z0 should be empty. keeping sigma0');
-	s1.z = cs2z(rel.sigma0,rel);
+	warning('either rel.sigma0 or rel.z0 should be empty. keeping sigma0');
+	s1.z = sigma2z(rel.sigma0,rel);
+	s1.sigma = [];
 else isempty(rel.sigma0) & isempty(rel.z0)
 	if ~isempty(rel.zTrapLevel)
 		s1.z = rel.zTrapLevel .* ones(size(s1.x));
+		s1.sigma = [];
 	elseif ~isempty(rel.sigmaTrapLevel)
 		s1.sigma = rel.sigmaTrapLevel .* ones(size(s1.x));
+		s1.z = [];
 	else
 		error('can''t find sigma0 or z0 or any other clues.');
 	end
 end
 dt = (run.t(nn(2)) - run.t(nn(1))) / rel.dt_per_DT;
 s1 = interpEverything(s1,dt,rel,run);
-s1.active = isactive(s1);
-saveStep(s1,1,saveToVar,steps,basefilename);
+%steps = saveStep(s1,1,saveToVar,steps,basefilename);
 
 % main loop
 for ni = 2:length(nn)
@@ -78,14 +84,14 @@ for ni = 2:length(nn)
 	else % ---------------------------------
 		for m = 1:Ninternal
 			s0 = s1;
-			s1 = takeStep(s0,dt,rel,run);
+			s1 = takeStep(s0,dt,rel);
 			s1 = interpEverything(s1,rel,run);
 		end
 	end
 	
 	s1.t = repmat(tt(2),size(s1.t));
 		% make sure particles are exactly at the time we think they're at
-	saveStep(s1,ni,saveToVar,steps,basefilename);
+	steps = saveStep(s1,ni,saveToVar,steps,basefilename);
 		% save to either files or memory, on the same timebase as the
 		% model output itself
 end
@@ -97,25 +103,30 @@ function s = interpEverything(s0,dt,rel,run);
 % takes a set of particle positions s.x, s.y, s.z, s.t and interpolates
 % cs, H, zeta, u, v, w, dksdz, wdiff, tracers, uScaled, vScaled, active
 s = s0;
-s.H = run.interpH(s.y, s.x);
-s.zeta = run.interpZeta(s.t, s.y, s.x);
-s.mask = run.interpMask(s.t, s.y, s.x);
-if ~isempty(rel.zTrapLevel)
+s.H = run.interpH(s.x, s.y);
+s.zeta = run.interpZeta(s.x, s.y, s.t);
+s.mask = run.interpMask(s.x, s.y, s.t);
+if ~isempty(rel.zTrapLevel) % z trapped
 	s.z = rel.zTrapLevel;
 	s.sigma = z2sigma(s.z, s.H, s.zeta);
-elseif ~isempty(rel.sigmaTrapLevel)
+elseif ~isempty(rel.sigmaTrapLevel) % sigma trapped
 	s.sigma = rel.sigmaTrapLevel;
 	s.z = sigma2z(s.sigma, s.H, s.zeta);
-else
+elseif isempty(s.z) % z not defined yet
+	s.z = sigma2z(s.sigma, s.H, s.zeta);	
+else % normal case
+	s.sigma = z2sigma(s.z, s.H, s.zeta);
+	s.z = sigma2z(s.sigma, s.H, s.zeta);	
 end
-s.u = run.interpU(s.t, s.sigma, s.y, s.x);
-s.v = run.interpV(s.t, s.sigma, s.y, s.x);
-s.w = run.interpW(s.t, s.sigma, s.y, s.x);
-s.uScaled = run.scaleU(s.u, s.y, s.x);
-s.vScaled = run.scaleV(s.v, s.y, s.x);
+s.u = run.interpU(s.x, s.y, s.sigma, s.t);
+s.v = run.interpV(s.x, s.y, s.sigma, s.t);
+s.w = run.interpW(s.x, s.y, s.sigma, s.t);
+s.uScaled = run.scaleU(s.u, s.x, s.y);
+s.vScaled = run.scaleV(s.v, s.x, s.y);
+s.Ks = run.interpKs(s.x, s.y, s.sigma, s.t);
 for i=1:length(rel.tracers)
 	s.(rel.tracers{i}) = run.interpTracer(rel.tracers{i}, ...
-							s.t, s.sigma, s.y, s.x);
+							s.x, s.y, s.sigma, s.t);
 end
 if rel.diffusive
 	% diffusion gradient dKs/dz
@@ -124,18 +135,18 @@ if rel.diffusive
 	dsigma = dz ./ (s.H + s.zeta);
 	sigmatop = min(s.sigma + dsigma,0);
 	sigmabot = max(s.sigma - dsigma,-1);
-	Kstop = run.interpKs(s.t, sigmatop, s.y, s.x);
-	Ksbot = run.interpKs(s.t, sigmabot, s.y, s.x);
+	Kstop = run.interpKs(s.x, s.y, sigmatop, s.t);
+	Ksbot = run.interpKs(s.x, s.y, sigmabot, s.t);
 	s.dKsdz = (Kstop - Ksbot) ./ (sigmatop - sigmabot) ./ (s.H + s.zeta);
 	% diffusion velocity wdiff
 	sigma1 = z2sigma(s.z + 0.5.*s.dKsdz.* dt, s.H, s.zeta);
-	Ks1 = run.interpKs(s.t, sigma1, s.y, s.x);
+	Ks1 = run.interpKs(s.x, s.y, sigma1, s.t);
 	s.wdiff = sqrt(2.*Ks1./dt) .* randn(size(Ks1));
 else
 	s.dKsdz = 0;
 	s.wdiff = 0;
 end
-s.active = run.in_xy_bounds(s.y, s.x);
+s.active = run.in_xy_bounds(s.x, s.y);
 
 
 % ------------------------------------------------------------------------------
@@ -202,11 +213,12 @@ end
 
 
 % ------------------------------------------------------------------------------
-function steps = saveStep(step,i,saveToVar,steps,basefilename);
+function steps1 = saveStep(step,i,saveToVar,steps,basefilename);
 % saves _step_ either to the variable _steps_, a numbered file, or both.
 
 if saveToVar
-	steps(i) = step;
+	steps1 = steps;
+	steps1(i) = step;
 end
 if ~isempty(basefilename)
 	nstr = ['0000' num2str(i)];
@@ -214,3 +226,5 @@ if ~isempty(basefilename)
 	filename = [basefilename nstr '.mat'];
 	save(filename,fieldnames(step));
 end
+
+

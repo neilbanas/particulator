@@ -30,30 +30,30 @@ classdef modelRun < handle
 		function run = advanceTo(run,n,tracers);
 		end
 		
-		function H = interpH(run,y,x);
+		function H = interpH(run,x,y);
 		end
-		function zeta = interpZeta(run,t,y,x);
+		function zeta = interpZeta(run,x,y,t);
 		end
-		function mask = interpMask(run,t,y,x);
-		end
-		
-		function u = interpU(run,t,sigma,y,x);
-		end
-		function v = interpV(run,t,sigma,y,x);
-		end
-		function w = interpW(t,sigma,y,x);
-		end
-		function Ks = interpKs(t,sigma,y,x);
-		end
-		function c = interpTracer(run,name,t,sigma,y,x);
+		function mask = interpMask(run,x,y,t);
 		end
 		
-		function us = scaleU(run,u,y,x);
+		function u = interpU(run,x,y,sigma,t);
 		end
-		function vs = scaleV(run,v,y,x);
+		function v = interpV(run,x,y,sigma,t);
+		end
+		function w = interpW(x,y,sigma,t);
+		end
+		function Ks = interpKs(x,y,sigma,t);
+		end
+		function c = interpTracer(run,name,x,y,sigma,t);
 		end
 		
-		function isin = in_xy_bounds(run,y,x);
+		function us = scaleU(run,u,x,y);
+		end
+		function vs = scaleV(run,v,x,y);
+		end
+		
+		function isin = in_xy_bounds(run,x,y);
 		end		
 	end
 

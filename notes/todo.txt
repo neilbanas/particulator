@@ -1,3 +1,15 @@
+BUGS TO FIX
+
+
+* something is wrong with modelRun_romsCascadia.interpW
+
+* call to saveStep() in par_integrate fails with 'not enough inputs'
+
+
+
+FEATURES TO ADD
+
+
 * how does interpn for velocity behave relative to the 1-D interpolation used in particulator-java?
 
 * make par_concatSteps read from a file sequence
@@ -11,3 +23,4 @@ not what I ended up doing in the Processing version of particulator.
 
 * allow sigmaTrapLevel or zTrapLevel to be a two-element vector, meaning an average over a range
 
+* figure out how to handle interpolation of tracers near land, since tracer fields are nan there (see modelRun_romsCascadia.loadFrame and .interpTracer)

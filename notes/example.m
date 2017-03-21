@@ -1,4 +1,4 @@
-run = modelRun_romsCascadia('dirname/');
+run = modelRun_romsCascadia('/Users/neil/Dropbox/util/flow samples/salish2006/');
 							% _run_ identifies a model run to use as source data
 
 x0 = run.grid.lon;			% pick initial coordinates
