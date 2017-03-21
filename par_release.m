@@ -4,6 +4,7 @@ function rel = par_release(varargin);
 %
 % specification for a particle release experiment.
 
+
 % defaults
 rel.x0 = [];
 rel.y0 = [];
@@ -15,7 +16,9 @@ rel.sigmaTrapLevel = [];
 rel.zTrapLevel = [];
 rel.diffusive = 1;
 rel.tracers = {};
-rel.dt_per_DT = 2; % internal timesteps per frame of saved model output
+rel.Ninternal = 2; % internal timesteps per frame of saved model output
+rel.parallel = 0; % serial calculation unless this is turned on
+rel.verbose = 0; % quiet about status updates unless this is turned on
 
 % overwrite with specified name-value pairs
 fields = {varargin{1:2:end}};

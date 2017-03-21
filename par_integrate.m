@@ -9,9 +9,6 @@ function steps = par_integrate(rel,run,basefilename);
 % sequential files. If a basefilename is given, saves steps to
 % basefilename1.mat, basefilename2.mat,....
 
-parallel = 0;
-verbose = 1;
-
 
 if nargin<3, basefilename = ''; end
 steps = [];
@@ -52,7 +49,7 @@ else isempty(rel.sigma0) & isempty(rel.z0)
 		error('can''t find sigma0 or z0 or any other clues.');
 	end
 end
-dt = (run.t(nn(2)) - run.t(nn(1))) / rel.dt_per_DT;
+dt = (run.t(nn(2)) - run.t(nn(1))) / rel.Ninternal;
 s1 = interpEverything(s1,dt,rel,run);
 steps = saveStep(s1,1,saveToVar,steps,basefilename);
 
@@ -61,16 +58,16 @@ steps = saveStep(s1,1,saveToVar,steps,basefilename);
 for ni = 2:length(nn)
 	run.advanceTo(nn(ni),rel.tracers);
 
-	if verbose
-		disp(['step ' num2str(nn(ni))]);
-		disp(['loadedN = ' num2str(run.loadedN)]);
+	if rel.verbose
+		disp(['step ' num2str(nn(ni)) ...
+		      ', between model frames ' num2str(run.loadedN)]);
 	end
 
 	tt = run.t(run.loadedN); % model time range in memory
-	Ninternal = rel.dt_per_DT;
+	Ninternal = rel.Ninternal;
 	dt = diff(tt) / Ninternal; % internal timestep
 
-	if parallel % --------------------------
+	if rel.parallel % --------------------------
 		s1blocks = disassemble(s1);
 		parfor j=1:length(s1blocks)
 			s1blockj = s1blocks{j};
@@ -85,6 +82,7 @@ for ni = 2:length(nn)
 		
 	else % ---------------------------------
 		for m = 1:Ninternal
+			if rel.verbose, disp('    .'); end
 			s0 = s1;
 			s1 = takeStep(s0,dt,rel,run);
 			s1 = interpEverything(s1,dt,rel,run);
