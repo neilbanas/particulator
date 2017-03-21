@@ -26,10 +26,9 @@ classdef modelRun_romsCascadia < modelRun
 	methods
 	
 		function run = modelRun_romsCascadia(dirname);
-			run.outOfBoundsValue = 0; % set this to nan to have interp functions
-								  	  % fail obviously, 0 to have them fail
-								  	  % harmlessly
-			
+			run.outOfBoundsValue = 0; % set this to nan to have interp
+									  % functions fail obviously, 0 to have
+									  % them fail harmlessly
 			% locate file list
 			thefiles = dir([dirname 'ocean_his_*.nc']);
 			run.filename = {thefiles.name};
@@ -134,10 +133,10 @@ classdef modelRun_romsCascadia < modelRun
 			% interpolation (otherwise, need to deal with this properly in
 			% run.interpTracer()).
 			run.F1.u(run.F1.u > 1e36) = 0;
-			run.F1.v(run.F1.u > 1e36) = 0;
-			run.F1.w(run.F1.u > 1e36) = 0;
-			run.F1.Ks(run.F1.u > 1e36) = 0;
-			run.F1.zeta(run.F1.u > 1e36) = 0;
+			run.F1.v(run.F1.v > 1e36) = 0;
+			run.F1.w(run.F1.w > 1e36) = 0;
+			run.F1.Ks(run.F1.Ks > 1e36) = 0;
+			run.F1.zeta(run.F1.zeta > 1e36) = 0;
 			for i=1:length(tracers)
 				run.F1.(tracers{i})(run.F1.(tracers{i}) > 1e36) = nan;
 			end
@@ -147,8 +146,8 @@ classdef modelRun_romsCascadia < modelRun
 		
 		function run = advanceTo(run,n,tracers);
 			run.F0 = run.F1;
+			run.loadedN(1) = run.loadedN(2);
 			run.loadFrame(n,tracers);
-			run.loadedN = [run.loadedN(2) n];
 		end
 		
 		
@@ -229,7 +228,7 @@ classdef modelRun_romsCascadia < modelRun
 				w1 = interpn(...
 				     run.grid.w3.lon, run.grid.w3.lat, run.grid.w3.cs, ...
 					 run.F1.w, x(isin), y(isin), sigma1(isin));
-				w = run.tinterp(t, w0, w1);
+				w(isin) = run.tinterp(t, w0, w1);
 			end
 		end
 		

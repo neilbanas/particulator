@@ -13,7 +13,7 @@ parallel = 0;
 verbose = 1;
 
 
-if nargin<2, basefilename = ''; end
+if nargin<3, basefilename = ''; end
 steps = [];
 saveToVar = (nargout > 0);
 
@@ -54,14 +54,16 @@ else isempty(rel.sigma0) & isempty(rel.z0)
 end
 dt = (run.t(nn(2)) - run.t(nn(1))) / rel.dt_per_DT;
 s1 = interpEverything(s1,dt,rel,run);
-%steps = saveStep(s1,1,saveToVar,steps,basefilename);
+steps = saveStep(s1,1,saveToVar,steps,basefilename);
+
 
 % main loop
 for ni = 2:length(nn)
 	run.advanceTo(nn(ni),rel.tracers);
 
 	if verbose
-		disp(nn(ni));
+		disp(['step ' num2str(nn(ni))]);
+		disp(['loadedN = ' num2str(run.loadedN)]);
 	end
 
 	tt = run.t(run.loadedN); % model time range in memory
@@ -84,11 +86,12 @@ for ni = 2:length(nn)
 	else % ---------------------------------
 		for m = 1:Ninternal
 			s0 = s1;
-			s1 = takeStep(s0,dt,rel);
-			s1 = interpEverything(s1,rel,run);
+			s1 = takeStep(s0,dt,rel,run);
+			s1 = interpEverything(s1,dt,rel,run);
 		end
 	end
 	
+	s1.n = run.loadedN(end);
 	s1.t = repmat(tt(2),size(s1.t));
 		% make sure particles are exactly at the time we think they're at
 	steps = saveStep(s1,ni,saveToVar,steps,basefilename);
@@ -161,7 +164,7 @@ z = min(max(sigma,-1),0) .* (H + zeta) + zeta;
 
 
 % ------------------------------------------------------------------------------
-function s1 = takeStep(s0,dt,rel);
+function s1 = takeStep(s0,dt,rel,run);
 % the basic operation X1 = X0 + X*dt.
 % midpoint method.
 % fills in only x,y,z,t; other fields are calculated in interpEverything().
@@ -169,10 +172,10 @@ smid.x = s0.x + s0.uScaled .* 0.5 .* dt; % take half an advective step
 smid.y = s0.y + s0.vScaled .* 0.5 .* dt;
 smid.z = s0.z + s0.w       .* 0.5 .* dt;
 smid.t = s0.t + 0.5 .* dt;
-smid = interpEverything(smid,rel); % calculate new advective velocities
+smid = interpEverything(smid,dt,rel,run); % calculate new advective velocities
 s1.x = s0.x + smid.uScaled 					 .* dt; % full step
 s1.y = s0.y + smid.vScaled                   .* dt;
-s1.z = s0.z + (smid.w + s0.wdiff + s0.dksdz) .* dt;
+s1.z = s0.z + (smid.w + s0.wdiff + s0.dKsdz) .* dt;
 s1.t = s0.t + dt;
 
 
@@ -217,8 +220,12 @@ function steps1 = saveStep(step,i,saveToVar,steps,basefilename);
 % saves _step_ either to the variable _steps_, a numbered file, or both.
 
 if saveToVar
-	steps1 = steps;
-	steps1(i) = step;
+	if ~isempty(steps)
+		steps1 = steps;
+		steps1(i) = step;
+	else
+		steps1 = step;
+	end
 end
 if ~isempty(basefilename)
 	nstr = ['0000' num2str(i)];

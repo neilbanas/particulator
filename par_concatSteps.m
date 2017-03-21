@@ -10,7 +10,7 @@ function P = par_concatSteps(steps);
 %
 % TODO: the file-based version!
 
-N = length(fields);
+N = length(steps);
 fields = fieldnames(steps(1));
 for i=1:length(fields)
 	P.(fields{i}) = nan.*ones([N size(steps(1).(fields{i}))]);

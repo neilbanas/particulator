@@ -1,9 +1,6 @@
 BUGS TO FIX
 
 
-* something is wrong with modelRun_romsCascadia.interpW
-
-* call to saveStep() in par_integrate fails with 'not enough inputs'
 
 
 
