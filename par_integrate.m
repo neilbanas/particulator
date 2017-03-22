@@ -72,6 +72,7 @@ for ni = 2:length(nn)
 		parfor j=1:length(s1blocks)
 			s1blockj = s1blocks{j};
 			for m = 1:Ninternal
+				if rel.verbose, disp(['    ' num2str(j)]); end
 				s0blockj = s1blockj;
 				s1blockj = takeStep(s0blockj,dt,rel,run);
 				s1blockj = interpEverything(s1blockj,dt,rel,run);
@@ -183,16 +184,20 @@ s1.t = s0.t + dt;
 function blocks = disassemble(s);
 % splits the step _s_ into a number of blocks for parallel integration.
 NP = length(s.x);
-NB = gcp.NumWorkers;
-lim = [0 (1:NB).*round(NP/NB)]; % block i runs from lim(i-1)+1 to lim(i)
+pool = gcp;
+NB = pool.NumWorkers;
+lim = [0 (1:NB).*round(NP/NB)]; % block i runs from lim(i)+1 to lim(i+1)
+lim(end) = NP; % if there's a roundoff issue, fix it in the last block
 fields = fieldnames(s);
 for i=1:length(fields)
 	if length(s.(fields{i})) == NP
 		for j=1:NB
-			blocks{j}.(fields{i}) = s.(fields{i})(lim(j-1)+1:lim(j));
+			blocks{j}.(fields{i}) = s.(fields{i})(lim(j)+1:lim(j+1));
 		end
 	else
-		blocks{j}.(fields{i}) = s.(fields{i});
+		for j=1:NB
+			blocks{j}.(fields{i}) = s.(fields{i});
+		end
 	end
 end
 
@@ -205,7 +210,7 @@ for j=2:length(blocks)
 	NP = length(blocks{j}.x);
 	for i=1:length(fields)
 		if length(blocks{j}.(fields{i})) == NP
-			s.(fields{i}) = concat(1,s.(fields{i})(:),blocks{j}.(fields{i})(:));
+			s.(fields{i}) = cat(1,s.(fields{i})(:),blocks{j}.(fields{i})(:));
 		else
 			% ignore fields that aren't the same size as x; presumably these are
 			% scalars and the value from block 1 is fine
