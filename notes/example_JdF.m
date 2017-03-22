@@ -36,10 +36,11 @@ rel = par_release('x0',x0,'y0',y0,'sigma0',sigma0,'t0',t0,'t1',t1,...
 				  'Ninternal',Ninternal,...
 				  'tracers',{'salt','temp'});
 rel.verbose = 1; % extra diagnostic info please
-
+%rel.parallel = 1;
 							
 % the actual Lagrangian integration, saved in _steps_
-% this can easily be saved to sequentiol files instead (untested!)
+% this can easily be saved to sequentiol files instead by adding a basename
+% as a third argument
 steps = par_integrate(rel,run);
 		
 							

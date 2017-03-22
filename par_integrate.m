@@ -231,7 +231,7 @@ if ~isempty(basefilename)
 	nstr = ['0000' num2str(i)];
 	nstr = nstr(end-3:end);
 	filename = [basefilename nstr '.mat'];
-	save(filename,fieldnames(step));
+	save(filename,'step');
 end
 
 

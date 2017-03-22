@@ -19,7 +19,8 @@ not what I ended up doing in the Processing version of particulator.
 
 FEATURES TO ADD
 
-* make par_concatSteps read from a file sequence
+* test better that output from dir() that I assume to be numbered sequentially
+actually is numbered sequentially
 
 * allow sigmaTrapLevel or zTrapLevel to be a two-element vector, meaning an average over a range
 
