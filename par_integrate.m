@@ -67,29 +67,13 @@ for ni = 2:length(nn)
 	Ninternal = rel.Ninternal;
 	dt = diff(tt) / Ninternal; % internal timestep
 
-	if rel.parallel % --------------------------
-		s1blocks = disassemble(s1);
-		parfor j=1:length(s1blocks)
-			s1blockj = s1blocks{j};
-			for m = 1:Ninternal
-				if rel.verbose, disp(['    ' num2str(j)]); end
-				s0blockj = s1blockj;
-				s1blockj = takeStep(s0blockj,dt,rel,run);
-				s1blockj = interpEverything(s1blockj,dt,rel,run);
-			end
-			s1blocks{j} = s1blockj;	
-		end
-		s1 = reassemble(s1blocks);
-		
-	else % ---------------------------------
-		for m = 1:Ninternal
-			if rel.verbose, disp('    .'); end
-			s0 = s1;
-			s1 = takeStep(s0,dt,rel,run);
-			s1 = interpEverything(s1,dt,rel,run);
-		end
+	for m = 1:Ninternal
+		if rel.verbose, disp('    .'); end
+		s0 = s1;
+		s1 = takeStep(s0,dt,rel,run);
+		s1 = interpEverything(s1,dt,rel,run);
 	end
-	
+
 	s1.n = run.loadedN(end);
 	s1.t = repmat(tt(2),size(s1.t));
 		% make sure particles are exactly at the time we think they're at
@@ -178,46 +162,6 @@ s1.x = s0.x + smid.uScaled .* dt; % full step
 s1.y = s0.y + smid.vScaled .* dt;
 s1.z = s0.z + (smid.w + s0.wdiff + s0.dKsdz) .* run.wScaleFactor .* dt;
 s1.t = s0.t + dt;
-
-
-% ------------------------------------------------------------------------------
-function blocks = disassemble(s);
-% splits the step _s_ into a number of blocks for parallel integration.
-NP = length(s.x);
-pool = gcp;
-NB = pool.NumWorkers;
-lim = [0 (1:NB).*round(NP/NB)]; % block i runs from lim(i)+1 to lim(i+1)
-lim(end) = NP; % if there's a roundoff issue, fix it in the last block
-fields = fieldnames(s);
-for i=1:length(fields)
-	if length(s.(fields{i})) == NP
-		for j=1:NB
-			blocks{j}.(fields{i}) = s.(fields{i})(lim(j)+1:lim(j+1));
-		end
-	else
-		for j=1:NB
-			blocks{j}.(fields{i}) = s.(fields{i});
-		end
-	end
-end
-
-function s = reassemble(blocks);
-% reconcatenates _blocks_ into a single step _s_
-NB = length(blocks);
-fields = fieldnames(blocks{1});
-s = blocks{1};
-for j=2:length(blocks)
-	NP = length(blocks{j}.x);
-	for i=1:length(fields)
-		if length(blocks{j}.(fields{i})) == NP
-			s.(fields{i}) = cat(1,s.(fields{i})(:),blocks{j}.(fields{i})(:));
-		else
-			% ignore fields that aren't the same size as x; presumably these are
-			% scalars and the value from block 1 is fine
-		end
-	end
-end
-
 
 
 % ------------------------------------------------------------------------------

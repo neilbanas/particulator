@@ -9,8 +9,9 @@ t0 = run.t(1) .* ones(size(x0));
 %t1 = run.t(end);
 t1 = t0 + 3/24;
 rel = par_release('x0',x0,'y0',y0,'sigma0',sigma0,'t0',t0,'t1',t1,...
-				  'Ninternal',1,'tracers',{'salt','temp'});
+				  'Ninternal',4,'tracers',{'salt','temp'});
 							% _rel_ = the setup of a particle release
+rel.verbose = 1;
 
 steps = par_integrate(rel,run);
 							% _steps_ = the actual Lagrangian integration

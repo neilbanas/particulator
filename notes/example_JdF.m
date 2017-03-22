@@ -30,13 +30,14 @@ Ninternal = 24; % internal timesteps for particle integration per interval
 disp(['integrating ' num2str(length(x0(:))) ' particles with a timestep of ' ...
 	  num2str(DT_saves/Ninternal) ' days']);
 
+
 % this returns an object specifying the setup of a particle release,
 % summarizing all the choices above
 rel = par_release('x0',x0,'y0',y0,'sigma0',sigma0,'t0',t0,'t1',t1,...
 				  'Ninternal',Ninternal,...
 				  'tracers',{'salt','temp'});
 rel.verbose = 1; % extra diagnostic info please
-%rel.parallel = 1;
+
 							
 % the actual Lagrangian integration, saved in _steps_
 % this can easily be saved to sequentiol files instead by adding a basename
