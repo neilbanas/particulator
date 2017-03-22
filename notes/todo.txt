@@ -2,14 +2,11 @@ BUGS TO FIX
 
 
 
-
-
-FEATURES TO ADD
-
+NUMERICS TO TEST
 
 * how does interpn for velocity behave relative to the 1-D interpolation used in particulator-java?
 
-* make par_concatSteps read from a file sequence
+* figure out how to handle interpolation of tracers near land, since tracer fields are nan there (see modelRun_romsCascadia.loadFrame and .interpTracer)
 
 * look carefully at x,y vs lon,lat for large grids. For now, working only in
 the units used in the grid, calling these x,y, and converting velocities for
@@ -18,6 +15,11 @@ not what I ended up doing in the Processing version of particulator.
  
 * eventually: check whether this form of parallelization has good scaling, vs. just splitting the entire expt and running multiple instances of par_integrate (which does mean loading each model frame more than once)
 
+
+
+FEATURES TO ADD
+
+* make par_concatSteps read from a file sequence
+
 * allow sigmaTrapLevel or zTrapLevel to be a two-element vector, meaning an average over a range
 
-* figure out how to handle interpolation of tracers near land, since tracer fields are nan there (see modelRun_romsCascadia.loadFrame and .interpTracer)

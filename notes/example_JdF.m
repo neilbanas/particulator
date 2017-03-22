@@ -21,11 +21,11 @@ sigma0 = sigma0(H0>50);
 % time
 t0 = run.t(1) .* ones(size(x0)); % start at first model save
 t1 = run.t(end) .* ones(size(x0));
-t1 = min(t1, t0 + 20); % track for 20 days or until the last save
+t1 = min(t1, t0 + 10); % track for 20 days or until the last save
 
 % set timestep
 DT_saves = run.t(2) - run.t(1);
-Ninternal = 4; % internal timesteps for particle integration per interval
+Ninternal = 24; % internal timesteps for particle integration per interval
 			   % between saved frames in the model run
 disp(['integrating ' num2str(length(x0(:))) ' particles with a timestep of ' ...
 	  num2str(DT_saves/Ninternal) ' days']);

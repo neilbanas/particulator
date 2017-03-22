@@ -130,19 +130,21 @@ for i=1:length(rel.tracers)
 							s.x, s.y, s.sigma, s.t);
 end
 if rel.diffusive
+	dt_secs = dt .* 86400; % assumes w is in (z units) per sec,
+						   % Ks is in (z units)^2 per sec
 	% diffusion gradient dKs/dz
-	dz = 1; % half-span to take gradient over. Not a good method, but preserving
-			% particulator-java behaviour for now.
-	dsigma = dz ./ (s.H + s.zeta);
+	wdiff_approx = sqrt(2.*s.Ks./dt_secs);
+	dsigma = wdiff_approx .* dt_secs ./ (s.H + s.zeta);
+		% half-span to take gradient over--the scale of the next diffusive step
 	sigmatop = min(s.sigma + dsigma,0);
 	sigmabot = max(s.sigma - dsigma,-1);
 	Kstop = run.interpKs(s.x, s.y, sigmatop, s.t);
 	Ksbot = run.interpKs(s.x, s.y, sigmabot, s.t);
 	s.dKsdz = (Kstop - Ksbot) ./ (sigmatop - sigmabot) ./ (s.H + s.zeta);
 	% diffusion velocity wdiff
-	sigma1 = z2sigma(s.z + 0.5.*s.dKsdz.* dt, s.H, s.zeta);
+	sigma1 = z2sigma(s.z + 0.5.*s.dKsdz.* dt_secs, s.H, s.zeta);
 	Ks1 = run.interpKs(s.x, s.y, sigma1, s.t);
-	s.wdiff = sqrt(2.*Ks1./dt) .* randn(size(Ks1));
+	s.wdiff = sqrt(2.*Ks1./dt_secs) .* randn(size(Ks1));
 else
 	s.dKsdz = 0;
 	s.wdiff = 0;
