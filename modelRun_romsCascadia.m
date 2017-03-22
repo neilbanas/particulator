@@ -276,6 +276,32 @@ classdef modelRun_romsCascadia < modelRun
 		end
 		
 		
+		function dKsdz = interp_dKsdz(run,x,y,sigma,t);
+			% gradient of diffusivity, on the model grid
+			isin = run.in_xy_bounds(x,y);
+			sigma1 = max(min(sigma,0),-1);
+			dKskz = run.outOfBoundsValue .* ones(size(x));
+			sigmatop = run.outOfBoundsValue .* ones(size(x));
+			sigmabot = run.outOfBoundsValue .* ones(size(x));
+			if ~isempty(isin)
+				% pick vertical grid levels above and below current points
+				Kw = length(run.grid.csw);
+				k = interp1(run.grid.csw, 1:Kw, sigma1(isin));
+				ktop = min(max(ceil(k),2),Kw-1);
+				kbot = ktop - 1;
+				sigmatop(isin) = run.grid.csw(ktop);
+				sigmabot(isin) = run.grid.csw(kbot);
+				Kstop = run.interpKs(x, y, sigmatop, t);
+				Ksbot = run.interpKs(x, y, sigmabot, t);
+				H = run.interpH(x, y);
+				zeta = run.interpZeta(x, y, t);
+				dz = (sigmatop - sigmabot) .* (H + zeta);
+				dKsdz(isin) = (Kstop(isin) - Ksbot(isin)) ./ dz(isin);
+			end
+			dKsdz = reshape(dKsdz, size(x));
+		end
+		
+		
 		function us = scaleU(run,u,x,y); % m/s -> deg lon per day
 			us = u .* 86400 ./ 111325 ./ cos(y./180.*pi);
 		end

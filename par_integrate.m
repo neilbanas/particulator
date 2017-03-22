@@ -131,14 +131,7 @@ for i=1:length(rel.tracers)
 end
 if rel.diffusive
 	% diffusion gradient dKs/dz
-	dz = 1; % half-span to take gradient over. Not a good method, but preserving
-			% particulator-java behaviour for now.
-	dsigma = dz ./ (s.H + s.zeta);
-	sigmatop = min(s.sigma + dsigma,0);
-	sigmabot = max(s.sigma - dsigma,-1);
-	Kstop = run.interpKs(s.x, s.y, sigmatop, s.t);
-	Ksbot = run.interpKs(s.x, s.y, sigmabot, s.t);
-	s.dKsdz = (Kstop - Ksbot) ./ (sigmatop - sigmabot) ./ (s.H + s.zeta);
+	s.dKsdz = run.interp_dKsdz(s.x, s.y, s.sigma, s.t);
 	% diffusion velocity wdiff
 	sigma1 = z2sigma(s.z + 0.5.*s.dKsdz.* dt, s.H, s.zeta);
 	Ks1 = run.interpKs(s.x, s.y, sigma1, s.t);
