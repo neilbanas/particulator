@@ -19,6 +19,11 @@ classdef modelRun < handle
 					% for particle integration
 					
 		grid		% model grid (details completely model-dependent)
+
+		wScaleFactor % instead of methods like scaleU() and scaleV(), which
+					% convert native u,v units to x,y units per day, assume
+					% that the conversion factor is constant for
+					% w, dKsdz, and wdiff
 	end
 	
 	methods

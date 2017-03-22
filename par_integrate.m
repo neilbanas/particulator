@@ -168,12 +168,12 @@ function s1 = takeStep(s0,dt,rel,run);
 % fills in only x,y,z,t; other fields are calculated in interpEverything().
 smid.x = s0.x + s0.uScaled .* 0.5 .* dt; % take half an advective step
 smid.y = s0.y + s0.vScaled .* 0.5 .* dt;
-smid.z = s0.z + s0.w       .* 0.5 .* dt;
+smid.z = s0.z + (s0.w .* run.wScaleFactor) .* 0.5 .* dt;
 smid.t = s0.t + 0.5 .* dt;
 smid = interpEverything(smid,dt,rel,run); % calculate new advective velocities
-s1.x = s0.x + smid.uScaled 					 .* dt; % full step
-s1.y = s0.y + smid.vScaled                   .* dt;
-s1.z = s0.z + (smid.w + s0.wdiff + s0.dKsdz) .* dt;
+s1.x = s0.x + smid.uScaled .* dt; % full step
+s1.y = s0.y + smid.vScaled .* dt;
+s1.z = s0.z + (smid.w + s0.wdiff + s0.dKsdz) .* run.wScaleFactor .* dt;
 s1.t = s0.t + dt;
 
 

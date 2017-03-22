@@ -101,6 +101,8 @@ classdef modelRun_romsCascadia < modelRun
 			grid.w3.cs = repmat(reshape(grid.csw,[1 1 Kw]),[I J 1]);
 
 			run.grid = grid;
+			
+			run.wScaleFactor = 86400; % m^2/s to m^2/day
 		end % constructor
 		
 		
