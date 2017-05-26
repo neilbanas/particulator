@@ -134,7 +134,7 @@ else
 	s.dKsdz = 0;
 	s.wdiff = 0;
 end
-s.active = run.in_xy_bounds(s.x, s.y);
+s.active = (s0.t >= rel.t0) & run.in_xy_bounds(s.x, s.y);
 
 
 % ------------------------------------------------------------------------------
@@ -153,14 +153,15 @@ function s1 = takeStep(s0,dt,rel,run);
 % the basic operation X1 = X0 + X*dt.
 % midpoint method.
 % fills in only x,y,z,t; other fields are calculated in interpEverything().
-smid.x = s0.x + s0.uScaled .* 0.5 .* dt; % take half an advective step
-smid.y = s0.y + s0.vScaled .* 0.5 .* dt;
-smid.z = s0.z + (s0.w .* run.wScaleFactor) .* 0.5 .* dt;
+ac = double(s0.active); % when this is 0, x,y,z do not advance but t does
+smid.x = s0.x + ac .* s0.uScaled .* 0.5 .* dt; % take half an advective step
+smid.y = s0.y + ac .* s0.vScaled .* 0.5 .* dt;
+smid.z = s0.z + ac .* (s0.w .* run.wScaleFactor) .* 0.5 .* dt;
 smid.t = s0.t + 0.5 .* dt;
 smid = interpEverything(smid,dt,rel,run); % calculate new advective velocities
-s1.x = s0.x + smid.uScaled .* dt; % full step
-s1.y = s0.y + smid.vScaled .* dt;
-s1.z = s0.z + (smid.w + s0.wdiff + s0.dKsdz) .* run.wScaleFactor .* dt;
+s1.x = s0.x + ac .* smid.uScaled .* dt; % full step
+s1.y = s0.y + ac .* smid.vScaled .* dt;
+s1.z = s0.z + ac .* (smid.w + s0.wdiff + s0.dKsdz) .* run.wScaleFactor .* dt;
 s1.t = s0.t + dt;
 
 
