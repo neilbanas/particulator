@@ -14,12 +14,20 @@ if nargin<3, basefilename = ''; end
 steps = [];
 saveToVar = (nargout > 0);
 
+if rel.verbose
+	disp('integrating with particle release...');
+	rel
+	disp('...and model run...');
+	run
+end
+
 % frame numbers (in the model run's terms) that span the particle integration
 n00 = floor(min(interp1(run.t, 1:run.numFrames, rel.t0(:))));
 n11 = ceil(max(interp1(run.t, 1:run.numFrames, rel.t1(:))));
 nn = n00:n11;
 
 % load the initial frame
+if (rel.verbose), disp('loading first frames'); end
 run.loadFrame(n00,rel.tracers);
 run.advanceTo(n00,rel.tracers);
 % set up the initial set of particles--as if trajectories had previously been
