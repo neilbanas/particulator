@@ -288,7 +288,11 @@ classdef modelRun_romsCascadia < modelRun
 			isin = x >= run.grid.bounds(1) & x <= run.grid.bounds(2) & ...
 				   y >= run.grid.bounds(3) & y <= run.grid.bounds(4);
 		end		
-
+		function [x1,y1,active] = filterCoordinates(run,x,y);
+			active = run.in_xy_bounds(x,y);
+			x1 = x;
+			y1 = y;
+		end
 
 		function ci = tinterp(run,ti,c0,c1);
 			% given values c0, c1 at the times of frame0 and frame1, returns

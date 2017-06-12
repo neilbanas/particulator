@@ -58,7 +58,7 @@ classdef modelRun < handle
 		function vs = scaleV(run,v,x,y);
 		end
 		
-		function isin = in_xy_bounds(run,x,y);
+		function [x1,y1,active] = filterCoordinates(run,x,y);
 		end		
 	end
 

@@ -89,6 +89,10 @@ function s = interpEverything(s0,dt,rel,run);
 % takes a set of particle positions s.x, s.y, s.z, s.t and interpolates
 % cs, H, zeta, u, v, w, dksdz, wdiff, tracers, uScaled, vScaled, active
 s = s0;
+
+[s.x, s.y, s.active] = run.filterCoordinates(s.x, s.y);
+s.active = s.active & (s0.t >= rel.t0);
+
 s.H = run.interpH(s.x, s.y);
 s.zeta = run.interpZeta(s.x, s.y, s.t);
 s.mask = run.interpMask(s.x, s.y, s.t);
@@ -104,6 +108,7 @@ else % normal case
 	s.sigma = z2sigma(s.z, s.H, s.zeta);
 	s.z = sigma2z(s.sigma, s.H, s.zeta);	
 end
+
 s.u = run.interpU(s.x, s.y, s.sigma, s.t);
 s.v = run.interpV(s.x, s.y, s.sigma, s.t);
 s.w = run.interpW(s.x, s.y, s.sigma, s.t);
@@ -114,6 +119,7 @@ for i=1:length(rel.tracers)
 	s.(rel.tracers{i}) = run.interpTracer(rel.tracers{i}, ...
 							s.x, s.y, s.sigma, s.t);
 end
+
 if rel.diffusive
 	dt_secs = dt .* 86400; % assumes w is in (z units) per sec,
 						   % Ks is in (z units)^2 per sec
@@ -134,7 +140,6 @@ else
 	s.dKsdz = 0;
 	s.wdiff = 0;
 end
-s.active = (s0.t >= rel.t0) & run.in_xy_bounds(s.x, s.y);
 
 
 % ------------------------------------------------------------------------------
