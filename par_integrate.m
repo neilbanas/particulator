@@ -148,7 +148,11 @@ end
 if run.nativeSigma
 	s.u = run.interpU(s.x, s.y, s.sigma, s.t);
 	s.v = run.interpV(s.x, s.y, s.sigma, s.t);
-	s.w = run.interpW(s.x, s.y, s.sigma, s.t);
+	if isempty(rel.zTrapLevel) & isempty(rel.sigmaTrapLevel)
+		s.w = run.interpW(s.x, s.y, s.sigma, s.t);
+	else
+		s.w = 0;
+	end
 	s.Ks = run.interpKs(s.x, s.y, s.sigma, s.t);
 	for i=1:length(rel.tracers)
 		s.(rel.tracers{i}) = run.interpTracer(rel.tracers{i}, ...
@@ -157,7 +161,11 @@ if run.nativeSigma
 else % z levels
 	s.u = run.interpU_in_z(s.x, s.y, s.z, s.t);
 	s.v = run.interpV_in_z(s.x, s.y, s.z, s.t);
-	s.w = run.interpW_in_z(s.x, s.y, s.z, s.t);
+	if isempty(rel.zTrapLevel) & isempty(rel.sigmaTrapLevel)
+		s.w = run.interpW_in_z(s.x, s.y, s.z, s.t);
+	else
+		s.w = 0;
+	end
 	s.Ks = run.interpKs_in_z(s.x, s.y, s.z, s.t);
 	for i=1:length(rel.tracers)
 		s.(rel.tracers{i}) = run.interpTracer_in_z(rel.tracers{i}, ...
