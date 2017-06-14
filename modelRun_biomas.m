@@ -10,6 +10,7 @@ classdef modelRun_biomas < modelRun
 		dirname, basename
 		localVars, fileVars		% lookup table for associating files with
 								% standard variables
+		si	% scatteredInterpolant objects for H, mask
 	end
 	
 	methods
@@ -117,6 +118,11 @@ classdef modelRun_biomas < modelRun
 			% the only bound where it's possible to be out of bounds
 			grid.ymin = min(grid.y(:));
 			
+			% make scatteredInterpolant objects that don't change
+			run.si.H = scatteredInterpolant(grid.x(:),grid.y(:),grid.H(:));
+			run.si.mask = ...
+				scatteredInterpolant(grid.x(:),grid.y(:),double(grid.mask(:)));
+			
 			run.grid = grid;
 		end % constructor
 		
@@ -199,15 +205,15 @@ classdef modelRun_biomas < modelRun
 		% point.
 	
 		function H = interpH(run,x,y);
-			H = griddata(run.grid.x,run.grid.y,run.grid.H,x,y);
+			H = run.si.H(x,y);
 		end
 		
 		function zeta = interpZeta(run,x,y,t);
-			zeta = zeros(size(x));
+			zeta = 0;
 		end
 		
 		function mask = interpMask(run,x,y,t);
-			mask = griddata(run.grid.x,run.grid.y,double(run.grid.mask),x,y);
+			mask = run.si.mask(x,y);
 			% note that t is not used here
 		end
 		
