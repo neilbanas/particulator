@@ -156,9 +156,9 @@ if run.nativeSigma
 	end
 else % z levels
 	s.u = run.interpU_in_z(s.x, s.y, s.z, s.t);
-	s.v = run.interpV_in_z(s.x, s.y, s.sigma, s.t);
-	s.w = run.interpW_in_z(s.x, s.y, s.sigma, s.t);
-	s.Ks = run.interpKs_in_z(s.x, s.y, s.sigma, s.t);
+	s.v = run.interpV_in_z(s.x, s.y, s.z, s.t);
+	s.w = run.interpW_in_z(s.x, s.y, s.z, s.t);
+	s.Ks = run.interpKs_in_z(s.x, s.y, s.z, s.t);
 	for i=1:length(rel.tracers)
 		s.(rel.tracers{i}) = run.interpTracer_in_z(rel.tracers{i}, ...
 								s.x, s.y, s.z, s.t);

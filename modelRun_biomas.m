@@ -136,12 +136,12 @@ classdef modelRun_biomas < modelRun
 					run.fileVars{strmatch('uv',run.localVars,'exact')} ...
 					run.basename]);
 			fseek(fid,framelength*(n-1),-1);
-			run.F0.u = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
+			run.F1.u = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
 			fseek(fid,framelength*(365+n-1),-1);			
-			run.F0.v = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
+			run.F1.v = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
 			fclose(fid);
-			run.F0.u = run.F0.u(:,:,[1 1:end end]);
-			run.F0.v = run.F0.v(:,:,[1 1:end end]);
+			run.F1.u = run.F1.u(:,:,[1 1:end end]);
+			run.F1.v = run.F1.v(:,:,[1 1:end end]);
 				% perhaps could wrap these around the first dimension...
 				% ([1:end 1],:,[1 1:end end])
 				% ... and likewise for all other fields, in order to make
@@ -151,17 +151,17 @@ classdef modelRun_biomas < modelRun
 					run.fileVars{strmatch('w',run.localVars,'exact')} ...
 					run.basename]);
 			fseek(fid,framelength*(n-1),-1);
-			run.F0.w = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
+			run.F1.w = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
 			fclose(fid);
-			run.F0.w = cat(3,zeros(I,J,1),run.F0.w);
+			run.F1.w = cat(3,zeros(I,J,1),run.F1.w);
 			% Ks
 			fid = fopen([run.dirname ...
 					run.fileVars{strmatch('Ks',run.localVars,'exact')} ...
 					run.basename]);
 			fseek(fid,framelength*(n-1),-1);
-			run.F0.Ks = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
+			run.F1.Ks = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
 			fclose(fid);
-			run.F0.Ks = run.F0.Ks(:,:,[1 1:end end]);
+			run.F1.Ks = run.F1.Ks(:,:,[1 1:end end]);
 				% is Ks on the tracer grid or the w grid?
 				% this version assumes tracer grid
 			% everything else
@@ -171,10 +171,10 @@ classdef modelRun_biomas < modelRun
 				if isempty(prefix), prefix = tracers{i}; end
 				fid = fopen([run.dirname prefix run.basename]);
 				fseek(fid,framelength*(n-1),-1);
-				run.F0.(tracers{i}) = ...
+				run.F1.(tracers{i}) = ...
 					reshape(fread(fid,I*J*K,'real*4'),[I J K]);
 				fclose(fid);
-				run.F0.(tracers{i}) = run.F0.(tracers{i})(:,:,[1 1:end end]);
+				run.F1.(tracers{i}) = run.F1.(tracers{i})(:,:,[1 1:end end]);
 			end
 			% declare this frame loaded
 			run.loadedN(2) = n;
@@ -222,14 +222,16 @@ classdef modelRun_biomas < modelRun
 			% does a 2D interpolation there.
 			z = mean(z);
 			k = find(abs(run.grid.ze - z)==min(abs(run.grid.ze - z)));
+			k = k(1);
 			u0 = griddata(run.grid.xu,run.grid.yu,run.F0.u(:,:,k),x,y);
 			u1 = griddata(run.grid.xu,run.grid.yu,run.F1.u(:,:,k),x,y);
 			u = run.tinterp(t, u0, u1);
 		end
 
-		function v = interpV(run,x,y,z,t);
+		function v = interpV_in_z(run,x,y,z,t);
 			z = mean(z);
 			k = find(abs(run.grid.ze - z)==min(abs(run.grid.ze - z)));
+			k = k(1);
 			v0 = griddata(run.grid.xu,run.grid.yu,run.F0.v(:,:,k),x,y);
 			v1 = griddata(run.grid.xu,run.grid.yu,run.F1.v(:,:,k),x,y);
 			v = run.tinterp(t, v0, v1);
@@ -238,13 +240,14 @@ classdef modelRun_biomas < modelRun
 		function w = interpW_in_z(run,x,y,z,t);
 			z = mean(z);
 			k = find(abs(run.grid.zwe - z)==min(abs(run.grid.zwe - z)));
+			k = k(1);
 			w0 = griddata(run.grid.x,run.grid.y,run.F0.w(:,:,k),x,y);
 			w1 = griddata(run.grid.x,run.grid.y,run.F1.w(:,:,k),x,y);
 			w = run.tinterp(t, w0, w1);
 		end
 		
 		function Ks = interpKs_in_z(run,x,y,z,t);
-			Ks = interpTracer(run,'Ks',x,y,z,t);
+			Ks = interpTracer_in_z(run,'Ks',x,y,z,t);
 		end
 		
 		function c = interpTracer_in_z(run,name,x,y,z,t);
@@ -253,6 +256,7 @@ classdef modelRun_biomas < modelRun
 			else
 				z = mean(z);
 				k = find(abs(run.grid.ze - z)==min(abs(run.grid.ze - z)));
+				k = k(1);
 			end
 			c0 = griddata(run.grid.x,run.grid.y,run.F0.(name)(:,:,k),x,y);
 			c1 = griddata(run.grid.x,run.grid.y,run.F1.(name)(:,:,k),x,y);
