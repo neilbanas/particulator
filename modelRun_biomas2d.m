@@ -11,7 +11,9 @@ classdef modelRun_biomas2d < modelRun
 		localVars, fileVars		% lookup table for associating files with
 								% standard variables
 		tracerDims				% are the named variables 2D or 3D
-		avg						% setup for depth-averaging 
+		avg						% setup for depth-averaging
+		si						% scatteredInterpolant objects for fields
+								% that don't change (H,mask) 
 		
 	end
 	
@@ -109,6 +111,12 @@ classdef modelRun_biomas2d < modelRun
 			run.avg.dz = dz3;
 			run.avg.dz(run.avg.mask==0) = 0;
 			run.avg.h = sum(run.avg.dz,3);
+			
+			% scatteredInterpolants
+			run.si.H = scatteredInterpolant(...
+				run.grid.x(:),run.grid.y(:),run.grid.H(:));
+			run.si.mask = scatteredInterpolant(...
+				run.grid.x(:),run.grid.y(:),double(run.grid.mask(:)));
 		end % constructor
 		
 		
@@ -167,6 +175,18 @@ classdef modelRun_biomas2d < modelRun
 				end
 				fclose(fid);
 			end
+			% create scatteredInterpolant objects for all fields
+			fields = fieldnames(run.F1);
+			run.F1.si.u = scatteredInterpolant(...
+				run.grid.xu(:),run.grid.yu(:),run.F1.u(:));
+			run.F1.si.v = scatteredInterpolant(...
+				run.grid.xu(:),run.grid.yu(:),run.F1.v(:));
+			run.F1.si.Ks = scatteredInterpolant(...
+				run.grid.x(:),run.grid.y(:),run.F1.Ks(:));
+			for i=1:length(tracers)
+				run.F1.si.(tracers{i}) = scatteredInterpolant(...
+					run.grid.x(:),run.grid.y(:),run.F1.(tracers{i})(:));
+			end
 			% declare this frame loaded
 			run.loadedN(2) = n;
 		end
@@ -191,7 +211,7 @@ classdef modelRun_biomas2d < modelRun
 		% point.
 	
 		function H = interpH(run,x,y);
-			H = griddata(run.grid.x,run.grid.y,run.grid.H,x,y);
+			H = run.si.H(x,y);
 		end
 		
 		function zeta = interpZeta(run,x,y,t);
@@ -199,21 +219,20 @@ classdef modelRun_biomas2d < modelRun
 		end
 		
 		function mask = interpMask(run,x,y,t);
-			mask = griddata(run.grid.x,run.grid.y,double(run.grid.mask),x,y);
+			mask = run.si.mask(x,y);
 			% note that t is not used here
 		end
 		
 		
 		function u = interpU(run,x,y,sigma,t);
-			% note that sigma is ignored in all of these--2d interpolation only
-			u0 = griddata(run.grid.xu,run.grid.yu,run.F0.u,x,y);
-			u1 = griddata(run.grid.xu,run.grid.yu,run.F1.u,x,y);
+			u0 = run.F0.si.u(x,y);
+			u1 = run.F1.si.u(x,y);
 			u = run.tinterp(t, u0, u1);
 		end
 
 		function v = interpV(run,x,y,sigma,t);
-			v0 = griddata(run.grid.xu,run.grid.yu,run.F0.v,x,y);
-			v1 = griddata(run.grid.xu,run.grid.yu,run.F1.v,x,y);
+			v0 = run.F0.si.v(x,y);
+			v1 = run.F1.si.v(x,y);
 			v = run.tinterp(t, v0, v1);
 		end
 
@@ -226,8 +245,9 @@ classdef modelRun_biomas2d < modelRun
 		end
 		
 		function c = interpTracer(run,name,x,y,sigma,t);
-			c0 = griddata(run.grid.x,run.grid.y,run.F0.(name),x,y);
-			c1 = griddata(run.grid.x,run.grid.y,run.F1.(name),x,y);
+			% note that sigma is ignored in all of these--2d interpolation only
+			c0 = run.F0.si.(name)(x,y);
+			c1 = run.F1.si.(name)(x,y);
 			c = run.tinterp(t, c0, c1);
 		end
 		
