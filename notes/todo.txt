@@ -4,7 +4,7 @@ BUGS TO FIX
 
 NUMERICS TO TEST
 
-* how does interpn for velocity behave relative to the 1-D interpolation used in particulator-java?
+* how does interpn for velocity behave relative to the 1-D-at-a-time interpolation used in particulator-java?
 
 * figure out how to handle interpolation of tracers near land, since tracer fields are nan there (see modelRun_romsCascadia.loadFrame and .interpTracer)
 
@@ -20,5 +20,8 @@ FEATURES TO ADD
 * test better that output from dir() that I assume to be numbered sequentially
 actually is numbered sequentially
 
-* allow sigmaTrapLevel or zTrapLevel to be a two-element vector, meaning an average over a range
+* allow sigmaTrapLevel or zTrapLevel to be a two-element vector, meaning an average over a range.
+
+* Pass sigmaTrapLevel to the interpU,V,... functions instead of s.sigma, and let
+the interp functions use the fact that size(sigma) ~= sigma(x) as a clue that a speedy special case is possible. (This would be by analogy with what is being added for modelRun_biomas.interp*_in_z().)
 

@@ -19,6 +19,10 @@ classdef modelRun < handle
 					% for particle integration
 					
 		grid		% model grid (details completely model-dependent)
+		
+		nativeSigma	% is the model on sigma as opposed to z levels?
+					% used to speed things up if rel.sigmaTrapLevel or 
+					% rel.zTrapLevel is set
 
 		wScaleFactor % instead of methods like scaleU() and scaleV(), which
 					% convert native u,v units to x,y units per day, assume
@@ -53,6 +57,18 @@ classdef modelRun < handle
 		function c = interpTracer(run,name,x,y,sigma,t);
 		end
 		
+		% these only need to be defined if nativeSigma = 0 
+		function u = interpU_in_z(run,x,y,z,t);
+		end
+		function v = interpV_in_z(run,x,y,z,t);
+		end
+		function w = interpW_in_z(x,y,z,t);
+		end
+		function Ks = interpKs_in_z(x,y,z,t);
+		end
+		function c = interpTracer_in_z(run,name,x,y,z,t);
+		end
+
 		function us = scaleU(run,u,x,y);
 		end
 		function vs = scaleV(run,v,x,y);

@@ -26,6 +26,7 @@ classdef modelRun_romsCascadia < modelRun
 	methods
 	
 		function run = modelRun_romsCascadia(dirname);
+			run.nativeSigma = 1;
 			run.outOfBoundsValue = 0; % set this to nan to have interp
 									  % functions fail obviously, 0 to have
 									  % them fail harmlessly

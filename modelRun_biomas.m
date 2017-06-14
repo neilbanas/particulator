@@ -14,7 +14,7 @@ classdef modelRun_biomas < modelRun
 	
 	methods
 	
-		function run = modelRun_biomas(dirname,year,griddir);
+		function run = modelRun_biomas(dirname,year,griddir);			
 			run.year = year;
 			run.numFrames = 365;
 			run.t = datenum(2009,0,0) + (1:365);
@@ -30,6 +30,7 @@ classdef modelRun_biomas < modelRun
 			run.fileVars = ...
 				{'uo','woday','vdcday','to','aiday','hiday','osswday'};
 			
+			run.nativeSigma = 0;
 			run.outOfBoundsValue = 0;
 			run.wScaleFactor = 86400;
 			
@@ -81,6 +82,7 @@ classdef modelRun_biomas < modelRun
 			grid.H = zeros(NN);
 			grid.H(grid.mask) = grid.zw(k(grid.mask));
 
+			%{
 			% 3D grids for convenience
 			[I,J] = size(grid.H);
 			K = length(grid.dz);
@@ -107,6 +109,11 @@ classdef modelRun_biomas < modelRun
 			grid.Hw3 = repmat(grid.H,[1 1 K+1]);
 			grid.sigmaw3 = grid.zw3 ./ grid.Hw3;
 			grid.sigmaw3(~isfinite(grid.sigmaw3)) = 0;
+			%}
+			
+			grid.ze = [0; grid.z; grid.zw(end)];
+			grid.zwe = [0; grid.zw];
+				% z,zw extrapolated to surface and bottom
 			
 			% the only bound where it's possible to be out of bounds
 			grid.ymin = min(grid.y(:));
@@ -206,52 +213,58 @@ classdef modelRun_biomas < modelRun
 		end
 		
 		function u = interpU(run,x,y,sigma,t);
-			u0 = griddata(run.grid.xu3,run.grid.yu3,run.grid.sigmau3,...
-						  run.F0.u,x,y,sigma);
-			u1 = griddata(run.grid.xu3,run.grid.yu3,run.grid.sigmau3,...
-						  run.F1.u,x,y,sigma);
+			error('no support yet for interpolating 3D BIOMAS fields in sigma coordinates.');
+		end
+			
+		function u = interpU_in_z(run,x,y,z,t);
+			% no support yet for full 3D z variables. Assumes the zTrapLevel
+			% case. Averages z, finds the model level closest to it, and
+			% does a 2D interpolation there.
+			z = mean(z);
+			k = find(abs(run.grid.ze - z)==min(abs(run.grid.ze - z)));
+			u0 = griddata(run.grid.xu,run.grid.yu,run.F0.u(:,:,k),x,y);
+			u1 = griddata(run.grid.xu,run.grid.yu,run.F1.u(:,:,k),x,y);
 			u = run.tinterp(t, u0, u1);
 		end
 
-		function v = interpV(run,x,y,sigma,t);
-			v0 = griddata(run.grid.xu3,run.grid.yu3,run.grid.sigmau3,...
-						  run.F0.v,x,y,sigma);
-			v1 = griddata(run.grid.xu3,run.grid.yu3,run.grid.sigmau3,...
-						  run.F1.v,x,y,sigma);
+		function v = interpV(run,x,y,z,t);
+			z = mean(z);
+			k = find(abs(run.grid.ze - z)==min(abs(run.grid.ze - z)));
+			v0 = griddata(run.grid.xu,run.grid.yu,run.F0.v(:,:,k),x,y);
+			v1 = griddata(run.grid.xu,run.grid.yu,run.F1.v(:,:,k),x,y);
 			v = run.tinterp(t, v0, v1);
 		end
 
-		function w = interpW(run,x,y,sigma,t);
-			w0 = griddata(run.grid.xw3,run.grid.yw3,run.grid.sigmaw3,...
-						  run.F0.w,x,y,sigma);
-			w1 = griddata(run.grid.xw3,run.grid.yw3,run.grid.sigmaw3,...
-						  run.F1.w,x,y,sigma);
+		function w = interpW_in_z(run,x,y,z,t);
+			z = mean(z);
+			k = find(abs(run.grid.zwe - z)==min(abs(run.grid.zwe - z)));
+			w0 = griddata(run.grid.x,run.grid.y,run.F0.w(:,:,k),x,y);
+			w1 = griddata(run.grid.x,run.grid.y,run.F1.w(:,:,k),x,y);
 			w = run.tinterp(t, w0, w1);
 		end
 		
-		function Ks = interpKs(run,x,y,sigma,t);
-			Ks = interpTracer(run,'Ks',x,y,sigma,t);
+		function Ks = interpKs_in_z(run,x,y,z,t);
+			Ks = interpTracer(run,'Ks',x,y,z,t);
 		end
 		
-		function c = interpTracer(run,name,x,y,sigma,t);
+		function c = interpTracer_in_z(run,name,x,y,z,t);
 			if ndims(run.F0.(name))==2 % 2d
-				c0 = griddata(run.grid.x,run.grid.y,run.F0.(name),x,y);
-				c1 = griddata(run.grid.x,run.grid.y,run.F1.(name),x,y);
-			else % 3d
-				c0 = griddata(run.grid.x3,run.grid.y3,run.grid.sigma3,...
-							  run.F0.(name),x,y,sigma);
-				c1 = griddata(run.grid.x3,run.grid.y3,run.grid.sigma3,...
-							  run.F1.(name),x,y,sigma);
+				k = 1;
+			else
+				z = mean(z);
+				k = find(abs(run.grid.ze - z)==min(abs(run.grid.ze - z)));
 			end
+			c0 = griddata(run.grid.x,run.grid.y,run.F0.(name)(:,:,k),x,y);
+			c1 = griddata(run.grid.x,run.grid.y,run.F1.(name)(:,:,k),x,y);
 			c = run.tinterp(t, c0, c1);
 		end
 		
 		
-		function us = scaleU(run,u,x,y); % m/s -> deg lon per day
-			us = u .* 86400 ./ 111325 ./ cos(y./180.*pi);
+		function us = scaleU(run,u,x,y); % cm/s -> deg lon per day
+			us = u ./ 100 .* 86400 ./ 111325 ./ cos(y./180.*pi);
 		end
-		function vs = scaleV(run,v,x,y); % m/s -> deg lat per day
-			vs = v .* 86400 ./ 111325;
+		function vs = scaleV(run,v,x,y); % cm/s -> deg lat per day
+			vs = v ./ 100 .* 86400 ./ 111325;
 		end
 		
 		

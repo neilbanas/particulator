@@ -30,6 +30,15 @@ if ~isempty(rel.zTrapLevel)
 	rel.diffusive = 0;
 end
 
+if ~run.nativeSigma
+	if rel.diffusive
+		warning('the dKsdz code hasn''t been rewritten to use the _in_z functions yet. Set rel.zTrapLevel and thus rel.diffusive = 0, use a sigma-coordinate model, or fill in this code.');
+	end
+	if isempty(rel.zTrapLevel)
+		warning('so far the interp*_in_z() functions only handle the special case where rel.zTrapLevel is set. For the full 3D case, set rel.nativeSigma=1 to use the default functions, or write more code');
+	end
+end
+		
 if rel.verbose
 	disp('integrating with particle release...');
 	rel
@@ -136,16 +145,28 @@ else % normal case
 	s.z = sigma2z(s.sigma, s.H, s.zeta);	
 end
 
-s.u = run.interpU(s.x, s.y, s.sigma, s.t);
-s.v = run.interpV(s.x, s.y, s.sigma, s.t);
-s.w = run.interpW(s.x, s.y, s.sigma, s.t);
+if run.nativeSigma
+	s.u = run.interpU(s.x, s.y, s.sigma, s.t);
+	s.v = run.interpV(s.x, s.y, s.sigma, s.t);
+	s.w = run.interpW(s.x, s.y, s.sigma, s.t);
+	s.Ks = run.interpKs(s.x, s.y, s.sigma, s.t);
+	for i=1:length(rel.tracers)
+		s.(rel.tracers{i}) = run.interpTracer(rel.tracers{i}, ...
+								s.x, s.y, s.sigma, s.t);
+	end
+else % z levels
+	s.u = run.interpU_in_z(s.x, s.y, s.z, s.t);
+	s.v = run.interpV_in_z(s.x, s.y, s.sigma, s.t);
+	s.w = run.interpW_in_z(s.x, s.y, s.sigma, s.t);
+	s.Ks = run.interpKs_in_z(s.x, s.y, s.sigma, s.t);
+	for i=1:length(rel.tracers)
+		s.(rel.tracers{i}) = run.interpTracer_in_z(rel.tracers{i}, ...
+								s.x, s.y, s.z, s.t);
+	end	
+end
+
 s.uScaled = run.scaleU(s.u, s.x, s.y);
 s.vScaled = run.scaleV(s.v, s.x, s.y);
-s.Ks = run.interpKs(s.x, s.y, s.sigma, s.t);
-for i=1:length(rel.tracers)
-	s.(rel.tracers{i}) = run.interpTracer(rel.tracers{i}, ...
-							s.x, s.y, s.sigma, s.t);
-end
 
 if rel.diffusive
 	dt_secs = dt .* 86400; % assumes w is in (z units) per sec,

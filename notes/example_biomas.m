@@ -13,6 +13,7 @@ rel = par_release('x0',x0,'y0',y0,'sigma0',sigma0,'t0',t0,'t1',t1,...
 							% _rel_ = the setup of a particle release
 rel.verbose = 1;
 rel.diffusive = 0;
+rel.zTrapLevel = -25;
 
 steps = par_integrate(rel,run);
 							% _steps_ = the actual Lagrangian integration
