@@ -14,6 +14,22 @@ if nargin<3, basefilename = ''; end
 steps = [];
 saveToVar = (nargout > 0);
 
+% make sure flags in _rel_ are consistent and that undefined ones are set to
+% sensible defaults
+if isempty(rel.diffusive)
+	rel.diffusive = 0;
+end
+if isempty(rel.verbose)
+	rel.verbose = 0;
+end
+if ~isempty(rel.sigmaTrapLevel)
+	rel.zTrapLevel = [];
+	rel.diffusive = 0;
+end
+if ~isempty(rel.zTrapLevel)
+	rel.diffusive = 0;
+end
+
 if rel.verbose
 	disp('integrating with particle release...');
 	rel
@@ -25,6 +41,9 @@ end
 n00 = floor(min(interp1(run.t, 1:run.numFrames, rel.t0(:))));
 n11 = ceil(max(interp1(run.t, 1:run.numFrames, rel.t1(:))));
 nn = n00:n11;
+if rel.verbose
+	disp(['using frames ' num2str(n00) ' .. ' num2str(n11)]);
+end
 
 % load the initial frame
 if (rel.verbose), disp('loading first frames'); end
