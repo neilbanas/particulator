@@ -58,7 +58,6 @@ classdef modelRun_biomas < modelRun
 			N = prod(NN);
 			grid.yu = reshape(a(1:N),NN);
 			grid.xu = reshape(a(N+1:2*N),NN);
-			grid.xu(grid.xu>180) = grid.xu(grid.xu>180) - 360;
 			% lengths of grid cell edges in km
 			grid.hun = reshape(a(2*N+1:3*N),NN); 
 			grid.hue = reshape(a(3*N+1:4*N),NN);
