@@ -1,20 +1,23 @@
-classdef modelRun_biomas < modelRun
+classdef modelRun_biomas2d < modelRun
 
 	% for working with output from the Biomas model.
+	% pre-averages over a certain depth range, so that 
 
 	properties
-		F0, F1	 % two frames of in-memory storage
-		outOfBoundsValue
+		F0, F1					% two frames of in-memory storage
 		year
 		griddir = 'data/biomas/';
 		dirname, basename
 		localVars, fileVars		% lookup table for associating files with
 								% standard variables
+		tracerDims				% are the named variables 2D or 3D
+		avg						% setup for depth-averaging 
+		
 	end
 	
 	methods
 	
-		function run = modelRun_biomas(dirname,year,griddir);
+		function run = modelRun_biomas2d(dirname,year,griddir,depthRange);
 			run.year = year;
 			run.numFrames = 365;
 			run.t = datenum(2009,0,0) + (1:365);
@@ -29,9 +32,9 @@ classdef modelRun_biomas < modelRun
 				% to be in a file with the same prefix as the var name.
 			run.fileVars = ...
 				{'uo','woday','vdcday','to','aiday','hiday','osswday'};
+			run.tracerDims = [3 3 3 3 2 2 2]; % 2D or 3D?
 			
-			run.outOfBoundsValue = 0;
-			run.wScaleFactor = 86400;
+			run.wScaleFactor = nan;
 			
 			% load grid.
 			% for now the grid is stored with the particulator code, not with 
@@ -57,7 +60,6 @@ classdef modelRun_biomas < modelRun
 			N = prod(NN);
 			grid.yu = reshape(a(1:N),NN);
 			grid.xu = reshape(a(N+1:2*N),NN);
-			grid.xu(grid.xu>180) = grid.xu(grid.xu>180) - 360;
 			% lengths of grid cell edges in km
 			grid.hun = reshape(a(2*N+1:3*N),NN); 
 			grid.hue = reshape(a(3*N+1:4*N),NN);
@@ -79,39 +81,34 @@ classdef modelRun_biomas < modelRun
 			k = 10.*a(:,1) + a(:,2);
 			grid.mask = reshape(k > 0,NN);
 			grid.H = zeros(NN);
-			grid.H(grid.mask) = grid.zw(k(grid.mask));
+			grid.H(grid.mask) = -grid.zw(k(grid.mask));
 
-			% 3D grids for convenience
-			[I,J] = size(grid.H);
-			K = length(grid.dz);
-			% ----- tracer grid
-			grid.x3 = repmat(grid.x,[1 1 K+2]);
-			grid.y3 = repmat(grid.y,[1 1 K+2]);
-			grid.z3 = repmat(....
-				reshape([0; grid.z; grid.zw(end)],[1 1 K+2]),[I J 1]);
-			grid.H3 = repmat(grid.H,[1 1 K+2]);
-			grid.sigma3 = grid.z3 ./ grid.H3;
-			grid.sigma3(~isfinite(grid.sigma3)) = 0;
-			% ----- u,v grid
-			grid.xu3 = repmat(grid.xu,[1 1 K+2]);
-			grid.yu3 = repmat(grid.yu,[1 1 K+2]);
-			grid.zu3 = repmat(....
-				reshape([0; grid.z; grid.zw(end)],[1 1 K+2]),[I J 1]);
-			grid.Hu3 = grid.H3; % not sure this is right
-			grid.sigmau3 = grid.zu3 ./ grid.Hu3;
-			grid.sigmau3(~isfinite(grid.sigmau3)) = 0;
-			% ----- w grid
-			grid.xw3 = repmat(grid.x,[1 1 K+1]);
-			grid.yw3 = repmat(grid.y,[1 1 K+1]);
-			grid.zw3 = repmat(reshape([0; grid.zw],[1 1 K+1]),[I J 1]);
-			grid.Hw3 = repmat(grid.H,[1 1 K+1]);
-			grid.sigmaw3 = grid.zw3 ./ grid.Hw3;
-			grid.sigmaw3(~isfinite(grid.sigmaw3)) = 0;
-			
 			% the only bound where it's possible to be out of bounds
 			grid.ymin = min(grid.y(:));
 			
 			run.grid = grid;
+			
+			% setup for depth averaging
+			if length(depthRange)==1
+				depthRange = depthRange.*[1 1];
+			end
+			k = find(abs(grid.zw-depthRange(1)) == ...
+					 min(abs(grid.zw-depthRange(1))));
+			k2 = find(abs(grid.zw-depthRange(2)) == ...
+					 min(abs(grid.zw-depthRange(2))));
+			run.avg.kRange = sort([k(1) k2(1)]);
+			run.avg.zRange = run.grid.zw(run.avg.kRange);
+			[I,J] = size(run.grid.x);
+			K = length(run.grid.zw);
+			zw3 = repmat(reshape(run.grid.zw,[1 1 K]),[I J 1]);
+			dz3 = repmat(reshape(run.grid.dz,[1 1 K]),[I J 1]);
+			H3 = repmat(run.grid.H,[1 1 K]);
+			run.avg.mask = zeros(I,J,K);
+			run.avg.mask(:,:,run.avg.kRange(1):run.avg.kRange(2)) = 1;
+			run.avg.mask(zw3 < -H3) = 0;
+			run.avg.dz = dz3;
+			run.avg.dz(run.avg.mask==0) = 0;
+			run.avg.h = sum(run.avg.dz,3);
 		end % constructor
 		
 		
@@ -129,45 +126,46 @@ classdef modelRun_biomas < modelRun
 					run.fileVars{strmatch('uv',run.localVars,'exact')} ...
 					run.basename]);
 			fseek(fid,framelength*(n-1),-1);
-			run.F0.u = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
+			A = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
+			run.F1.u = sum(A.*run.avg.dz,3) ./ run.avg.h;
+			run.F1.u(~isfinite(run.F1.u)) = 0;
 			fseek(fid,framelength*(365+n-1),-1);			
-			run.F0.v = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
+			A = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
+			run.F1.v = sum(A.*run.avg.dz,3) ./ run.avg.h;
+			run.F1.v(~isfinite(run.F1.v)) = 0;
 			fclose(fid);
-			run.F0.u = run.F0.u(:,:,[1 1:end end]);
-			run.F0.v = run.F0.v(:,:,[1 1:end end]);
 				% perhaps could wrap these around the first dimension...
-				% ([1:end 1],:,[1 1:end end])
+				% ([1:end 1],:)
 				% ... and likewise for all other fields, in order to make
 				% things interpolate correctly at x ~ 210 in the N Pacific.
-			% w
-			fid = fopen([run.dirname ...
-					run.fileVars{strmatch('w',run.localVars,'exact')} ...
-					run.basename]);
-			fseek(fid,framelength*(n-1),-1);
-			run.F0.w = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
-			fclose(fid);
-			run.F0.w = cat(3,zeros(I,J,1),run.F0.w);
 			% Ks
 			fid = fopen([run.dirname ...
 					run.fileVars{strmatch('Ks',run.localVars,'exact')} ...
 					run.basename]);
 			fseek(fid,framelength*(n-1),-1);
-			run.F0.Ks = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
+			A = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
+			run.F1.Ks = sum(A.*run.avg.dz,3) ./ run.avg.h;
+			run.F1.Ks(~isfinite(run.F1.Ks)) = 0;
 			fclose(fid);
-			run.F0.Ks = run.F0.Ks(:,:,[1 1:end end]);
 				% is Ks on the tracer grid or the w grid?
 				% this version assumes tracer grid
 			% everything else
 			for i=1:length(tracers)
-				prefix = [run.fileVars{...
-							strmatch(tracers{i},run.localVars,'exact')}];
+				j = strmatch(tracers{i},run.localVars,'exact');
+				prefix = [run.fileVars{j}];
 				if isempty(prefix), prefix = tracers{i}; end
 				fid = fopen([run.dirname prefix run.basename]);
-				fseek(fid,framelength*(n-1),-1);
-				run.F0.(tracers{i}) = ...
-					reshape(fread(fid,I*J*K,'real*4'),[I J K]);
+				if ~isempty(j) & run.tracerDims(j)==2 % 2D tracer
+					fseek(fid,framelength/K*(n-1),-1);
+					A = reshape(fread(fid,I*J,'real*4'),[I J]);
+					run.F1.(tracers{i}) = A;
+				else % 3D tracer
+					fseek(fid,framelength*(n-1),-1);
+					A = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
+					run.F1.(tracers{i}) = sum(A.*run.avg.dz,3) ./ run.avg.h;
+					run.F1.(tracers{i})(~isfinite(run.F1.(tracers{i}))) = 0;
+				end
 				fclose(fid);
-				run.F0.(tracers{i}) = run.F0.(tracers{i})(:,:,[1 1:end end]);
 			end
 			% declare this frame loaded
 			run.loadedN(2) = n;
@@ -197,7 +195,7 @@ classdef modelRun_biomas < modelRun
 		end
 		
 		function zeta = interpZeta(run,x,y,t);
-			zeta = zeros(size(x));
+			zeta = 0;
 		end
 		
 		function mask = interpMask(run,x,y,t);
@@ -205,28 +203,22 @@ classdef modelRun_biomas < modelRun
 			% note that t is not used here
 		end
 		
+		
 		function u = interpU(run,x,y,sigma,t);
-			u0 = griddata(run.grid.xu3,run.grid.yu3,run.grid.sigmau3,...
-						  run.F0.u,x,y,sigma);
-			u1 = griddata(run.grid.xu3,run.grid.yu3,run.grid.sigmau3,...
-						  run.F1.u,x,y,sigma);
+			% note that sigma is ignored in all of these--2d interpolation only
+			u0 = griddata(run.grid.xu,run.grid.yu,run.F0.u,x,y);
+			u1 = griddata(run.grid.xu,run.grid.yu,run.F1.u,x,y);
 			u = run.tinterp(t, u0, u1);
 		end
 
 		function v = interpV(run,x,y,sigma,t);
-			v0 = griddata(run.grid.xu3,run.grid.yu3,run.grid.sigmau3,...
-						  run.F0.v,x,y,sigma);
-			v1 = griddata(run.grid.xu3,run.grid.yu3,run.grid.sigmau3,...
-						  run.F1.v,x,y,sigma);
+			v0 = griddata(run.grid.xu,run.grid.yu,run.F0.v,x,y);
+			v1 = griddata(run.grid.xu,run.grid.yu,run.F1.v,x,y);
 			v = run.tinterp(t, v0, v1);
 		end
 
 		function w = interpW(run,x,y,sigma,t);
-			w0 = griddata(run.grid.xw3,run.grid.yw3,run.grid.sigmaw3,...
-						  run.F0.w,x,y,sigma);
-			w1 = griddata(run.grid.xw3,run.grid.yw3,run.grid.sigmaw3,...
-						  run.F1.w,x,y,sigma);
-			w = run.tinterp(t, w0, w1);
+			w = 0;
 		end
 		
 		function Ks = interpKs(run,x,y,sigma,t);
@@ -234,24 +226,17 @@ classdef modelRun_biomas < modelRun
 		end
 		
 		function c = interpTracer(run,name,x,y,sigma,t);
-			if ndims(run.F0.(name))==2 % 2d
-				c0 = griddata(run.grid.x,run.grid.y,run.F0.(name),x,y);
-				c1 = griddata(run.grid.x,run.grid.y,run.F1.(name),x,y);
-			else % 3d
-				c0 = griddata(run.grid.x3,run.grid.y3,run.grid.sigma3,...
-							  run.F0.(name),x,y,sigma);
-				c1 = griddata(run.grid.x3,run.grid.y3,run.grid.sigma3,...
-							  run.F1.(name),x,y,sigma);
-			end
+			c0 = griddata(run.grid.x,run.grid.y,run.F0.(name),x,y);
+			c1 = griddata(run.grid.x,run.grid.y,run.F1.(name),x,y);
 			c = run.tinterp(t, c0, c1);
 		end
 		
 		
 		function us = scaleU(run,u,x,y); % m/s -> deg lon per day
-			us = u .* 86400 ./ 111325 ./ cos(y./180.*pi);
+			us = u ./ 100 .* 86400 ./ 111325 ./ cos(y./180.*pi);
 		end
 		function vs = scaleV(run,v,x,y); % m/s -> deg lat per day
-			vs = v .* 86400 ./ 111325;
+			vs = v ./ 100 .* 86400 ./ 111325;
 		end
 		
 		
