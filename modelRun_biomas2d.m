@@ -148,7 +148,7 @@ classdef modelRun_biomas2d < modelRun
 				% bytes per 600x300x40 frame of one variable
 			% u and v
 			fid = fopen([run.dirname ...
-					run.fileVars{strmatch('uv',run.localVars,'exact')} ...
+					run.fileVars{strcmp('uv',run.localVars)} ...
 					run.basename]);
 			fseek(fid,framelength*(n-1),-1);
 			A = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
@@ -165,7 +165,7 @@ classdef modelRun_biomas2d < modelRun
 				% things interpolate correctly at x ~ 210 in the N Pacific.
 			% Ks
 			fid = fopen([run.dirname ...
-					run.fileVars{strmatch('Ks',run.localVars,'exact')} ...
+					run.fileVars{strcmp('Ks',run.localVars)} ...
 					run.basename]);
 			fseek(fid,framelength*(n-1),-1);
 			A = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
@@ -176,7 +176,7 @@ classdef modelRun_biomas2d < modelRun
 				% this version assumes tracer grid
 			% everything else
 			for i=1:length(tracers)
-				j = strmatch(tracers{i},run.localVars,'exact');
+				j = find(strcmp(tracers{i},run.localVars));
 				prefix = [run.fileVars{j}];
 				if isempty(prefix), prefix = tracers{i}; end
 				fid = fopen([run.dirname prefix run.basename]);
@@ -193,7 +193,6 @@ classdef modelRun_biomas2d < modelRun
 				fclose(fid);
 			end
 			% create scatteredInterpolant objects for all fields
-			fields = fieldnames(run.F1);
 			run.F1.si.u = scatteredInterpolant(...
 				run.pad.xu,run.pad.yu,run.F1.u(run.pad.indu));
 			run.F1.si.v = scatteredInterpolant(...
