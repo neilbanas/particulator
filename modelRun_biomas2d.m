@@ -12,9 +12,10 @@ classdef modelRun_biomas2d < modelRun
 								% standard variables
 		tracerDims				% are the named variables 2D or 3D
 		avg						% setup for depth-averaging
+		pad						% setup for padding grid with strips at x=0,360
+								% for wraparound interpolation
 		si						% scatteredInterpolant objects for fields
 								% that don't change (H,mask) 
-		
 	end
 	
 	methods
@@ -112,11 +113,27 @@ classdef modelRun_biomas2d < modelRun
 			run.avg.dz(run.avg.mask==0) = 0;
 			run.avg.h = sum(run.avg.dz,3);
 			
+			% setup for padding fields at x~0 and x~360
+			padWidth = 1; % deg longitude
+			fnear0 = find(grid.x < padWidth);
+			fnear360 = find(grid.x > 360-padWidth);
+			ffull = 1:prod(size(grid.x));
+			run.pad.ind = [ffull(:); fnear0(:); fnear360(:)];
+			run.pad.x = [run.grid.x(:); run.grid.x(fnear0) + 360; ...
+						 run.grid.x(fnear360) - 360];
+			run.pad.y = run.grid.y(run.pad.ind);
+			fnear0 = find(grid.x < padWidth);
+			fnear360 = find(grid.x > 360-padWidth);
+			run.pad.indu = [ffull(:); fnear0(:); fnear360(:)];
+			run.pad.xu = [run.grid.xu(:); run.grid.xu(fnear0) + 360; ...
+						 run.grid.xu(fnear360) - 360];
+			run.pad.yu = run.grid.y(run.pad.indu);
+			
 			% scatteredInterpolants
 			run.si.H = scatteredInterpolant(...
-				run.grid.x(:),run.grid.y(:),run.grid.H(:));
+				run.pad.x(:),run.pad.y(:),run.grid.H(run.pad.ind));
 			run.si.mask = scatteredInterpolant(...
-				run.grid.x(:),run.grid.y(:),double(run.grid.mask(:)));
+				run.pad.x(:),run.pad.y(:),double(run.grid.mask(run.pad.ind)));
 		end % constructor
 		
 		
@@ -178,14 +195,14 @@ classdef modelRun_biomas2d < modelRun
 			% create scatteredInterpolant objects for all fields
 			fields = fieldnames(run.F1);
 			run.F1.si.u = scatteredInterpolant(...
-				run.grid.xu(:),run.grid.yu(:),run.F1.u(:));
+				run.pad.xu,run.pad.yu,run.F1.u(run.pad.indu));
 			run.F1.si.v = scatteredInterpolant(...
-				run.grid.xu(:),run.grid.yu(:),run.F1.v(:));
+				run.pad.xu,run.pad.yu,run.F1.v(run.pad.indu));
 			run.F1.si.Ks = scatteredInterpolant(...
-				run.grid.x(:),run.grid.y(:),run.F1.Ks(:));
+				run.pad.x,run.pad.y,run.F1.Ks(run.pad.ind));
 			for i=1:length(tracers)
 				run.F1.si.(tracers{i}) = scatteredInterpolant(...
-					run.grid.x(:),run.grid.y(:),run.F1.(tracers{i})(:));
+					run.pad.x,run.pad.y,run.F1.(tracers{i})(run.pad.ind));
 			end
 			% declare this frame loaded
 			run.loadedN(2) = n;
@@ -197,7 +214,7 @@ classdef modelRun_biomas2d < modelRun
 			run.loadFrame(n,tracers);
 		end
 		
-		
+
 		% interpolating model variables ----------------------------------------
 
 		% note: there's a slice down the N Pacific, through the Gulf of Alaska,
