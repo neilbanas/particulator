@@ -20,5 +20,5 @@ FEATURES TO ADD
 * test better that output from dir() that I assume to be numbered sequentially
 actually is numbered sequentially
 
-* allow sigmaTrapLevel or zTrapLevel to be a two-element vector, meaning an average over a range
+* allow sigmaTrapLevel or zTrapLevel to be a two-element vector, meaning an average over a range, in romsCascadia
 

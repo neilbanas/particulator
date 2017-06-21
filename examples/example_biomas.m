@@ -16,7 +16,8 @@ rel = par_release('x0',x0,'y0',y0,'sigma0',sigma0,'t0',t0,'t1',t1,...
 				  'Ninternal',2,'tracers',{'ice','temp','diatom'});
 							% _rel_ = the setup of a particle release
 rel.verbose = 1;
-rel.diffusive = 0;
+rel.verticalDiffusion = 0;
+rel.horizDiffusion = 1;
 rel.zTrapLevel = mean(depthRange);
 							% this actually is ignored but it's less confusing
 							% if it's set consistently

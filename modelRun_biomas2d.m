@@ -1,7 +1,8 @@
 classdef modelRun_biomas2d < modelRun
 
 	% for working with output from the Biomas model.
-	% pre-averages over a certain depth range, so that 
+	% pre-averages over a specified depth range, so that all interpolations
+	% are 2D.
 
 	properties
 		F0, F1					% two frames of in-memory storage
@@ -278,11 +279,14 @@ classdef modelRun_biomas2d < modelRun
 		
 		function [x1,y1,active] = filterCoordinates(run,x,y);
 			active = y > run.grid.ymin;
-			% confine x coordinates to 0...360
-			x1 = mod(x,360);
+			y1 = y;
+			x1 = x;
 			% deal with the case where a point goes over the pole (y>90).
-			% here's a bad way of dealing with it:
-			y1 = min(y,90);
+			f = find(y1>90);
+			y1(f) = 180 - y1(f);
+			x1(f) = x1(f) + 180;
+			% confine x coordinates to 0...360
+			x1 = mod(x1,360);
 		end		
 
 
