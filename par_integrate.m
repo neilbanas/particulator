@@ -29,6 +29,9 @@ end
 if ~isempty(rel.zTrapLevel)
 	rel.diffusive = 0;
 end
+if length(rel.sigma0)==1
+	rel.sigma0 = repmat(rel.sigma0,size(rel.x0));
+end
 
 if rel.verbose
 	disp('integrating with particle release...');
