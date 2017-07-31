@@ -206,7 +206,7 @@ classdef returnMap < handle
 			P.y = map.y(P.ind);
 			% look up all fields at (n, ind(n,...))
 			n2 = repmat(nn(:),[1 numpar]);
-			i2 = sub2ind([numtime numpar], n2, ind);
+			i2 = sub2ind([length(map.t) size(map.M,2)], n2, ind);
 			i2 = reshape(i2,[numtime sz]);
 			for j=1:length(tracers)
 				P.(tracers{j}) = map.c.(tracers{j})(i2);
