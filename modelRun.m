@@ -19,11 +19,6 @@ classdef modelRun < handle
 					% for particle integration
 					
 		grid		% model grid (details completely model-dependent)
-
-		wScaleFactor % instead of methods like scaleU() and scaleV(), which
-					% convert native u,v units to x,y units per day, assume
-					% that the conversion factor is constant for
-					% w, dKsdz, and wdiff
 	end
 	
 	methods
@@ -46,16 +41,18 @@ classdef modelRun < handle
 		end
 		function v = interpV(run,x,y,sigma,t);
 		end
-		function w = interpW(x,y,sigma,t);
+		function w = interpW(run,x,y,sigma,t);
 		end
-		function Ks = interpKs(x,y,sigma,t);
+		function Ks = interpKs(run,x,y,sigma,t);
 		end
 		function c = interpTracer(run,name,x,y,sigma,t);
 		end
 		
-		function us = scaleU(run,u,x,y);
+		function us = scaleU(run,u,x,y); % native units -> deg lon/day
 		end
-		function vs = scaleV(run,v,x,y);
+		function vs = scaleV(run,v,x,y); % native units -> deg lat/day
+		end
+		function ws = scaleW(run,w); % native units -> m/day
 		end
 		
 		function [x1,y1,active] = filterCoordinates(run,x,y);

@@ -14,6 +14,7 @@ if nargin<3, basefilename = ''; end
 steps = [];
 saveToVar = (nargout > 0);
 
+% setup ------------------------------------------------------------------------
 % make sure flags in _rel_ are consistent and that undefined ones are set to
 % sensible defaults
 if isempty(rel.diffusive)
@@ -84,7 +85,7 @@ s1 = interpEverything(s1,dt,rel,run);
 steps = saveStep(s1,1,saveToVar,steps,basefilename);
 
 
-% main loop
+% main loop --------------------------------------------------------------------
 for ni = 2:length(nn)
 	run.advanceTo(nn(ni),rel.tracers);
 
@@ -115,9 +116,26 @@ end
 
 
 % ------------------------------------------------------------------------------
+function s1 = takeStep(s0,dt,rel,run);
+% the basic operation X1 = X0 + X*dt.
+% midpoint method.
+% fills in only x,y,z,t; other fields are calculated in interpEverything().
+ac = double(s0.active); % when this is 0, x,y,z do not advance but t does
+smid.x = s0.x + ac .* s0.uScaled .* 0.5 .* dt; % take half an advective step
+smid.y = s0.y + ac .* s0.vScaled .* 0.5 .* dt;
+smid.z = s0.z + ac .* s0.wScaled .* 0.5 .* dt;
+smid.t = s0.t + 0.5 .* dt;
+smid = interpEverything(smid,dt,rel,run); % calculate new advective velocities
+s1.x = s0.x + ac .*  smid.uScaled .* dt; % full step
+s1.y = s0.y + ac .*  smid.vScaled .* dt;
+s1.z = s0.z + ac .* (smid.wScaled + s0.wdiff + s0.dKsdz) .* dt;
+s1.t = s0.t + dt;
+
+
+% ------------------------------------------------------------------------------
 function s = interpEverything(s0,dt,rel,run);
 % takes a set of particle positions s.x, s.y, s.z, s.t and interpolates
-% cs, H, zeta, u, v, w, dksdz, wdiff, tracers, uScaled, vScaled, active
+% sigma, H, zeta, u, v, w, dksdz, wdiff, tracers, uScaled, vScaled, active
 s = s0;
 
 [s.x, s.y, s.active] = run.filterCoordinates(s.x, s.y);
@@ -144,6 +162,7 @@ s.v = run.interpV(s.x, s.y, s.sigma, s.t);
 s.w = run.interpW(s.x, s.y, s.sigma, s.t);
 s.uScaled = run.scaleU(s.u, s.x, s.y);
 s.vScaled = run.scaleV(s.v, s.x, s.y);
+s.wScaled = run.scaleW(s.w, s.x, s.y);
 s.Ks = run.interpKs(s.x, s.y, s.sigma, s.t);
 for i=1:length(rel.tracers)
 	s.(rel.tracers{i}) = run.interpTracer(rel.tracers{i}, ...
@@ -151,8 +170,9 @@ for i=1:length(rel.tracers)
 end
 
 if rel.diffusive
-	dt_secs = dt .* 86400; % assumes w is in (z units) per sec,
-						   % Ks is in (z units)^2 per sec
+	dt_secs = dt .* 86400;
+		% advective velocity is stored as m/day, but this code works in
+		% m/s and m^2/s, and converts to m/day at the end
 	% diffusion gradient dKs/dz
 	wdiff_approx = sqrt(2.*s.Ks./dt_secs);
 	dsigma = wdiff_approx .* dt_secs ./ (s.H + s.zeta);
@@ -166,6 +186,9 @@ if rel.diffusive
 	sigma1 = z2sigma(s.z + 0.5.*s.dKsdz.* dt_secs, s.H, s.zeta);
 	Ks1 = run.interpKs(s.x, s.y, sigma1, s.t);
 	s.wdiff = sqrt(2.*Ks1./dt_secs) .* randn(size(Ks1));
+	% now put both velocity terms in m/day
+	s.dKsdz = s.dKsdz .* 86400;
+	s.wdiff = s.wdiff .* 86400;
 else
 	s.dKsdz = 0;
 	s.wdiff = 0;
@@ -181,23 +204,6 @@ s = min(max(s,-1),0);
 function z = sigma2z(sigma, H, zeta);
 if nargin < 3, zeta = 0; end
 z = min(max(sigma,-1),0) .* (H + zeta) + zeta;
-
-
-% ------------------------------------------------------------------------------
-function s1 = takeStep(s0,dt,rel,run);
-% the basic operation X1 = X0 + X*dt.
-% midpoint method.
-% fills in only x,y,z,t; other fields are calculated in interpEverything().
-ac = double(s0.active); % when this is 0, x,y,z do not advance but t does
-smid.x = s0.x + ac .* s0.uScaled .* 0.5 .* dt; % take half an advective step
-smid.y = s0.y + ac .* s0.vScaled .* 0.5 .* dt;
-smid.z = s0.z + ac .* (s0.w .* run.wScaleFactor) .* 0.5 .* dt;
-smid.t = s0.t + 0.5 .* dt;
-smid = interpEverything(smid,dt,rel,run); % calculate new advective velocities
-s1.x = s0.x + ac .* smid.uScaled .* dt; % full step
-s1.y = s0.y + ac .* smid.vScaled .* dt;
-s1.z = s0.z + ac .* (smid.w + s0.wdiff + s0.dKsdz) .* run.wScaleFactor .* dt;
-s1.t = s0.t + dt;
 
 
 % ------------------------------------------------------------------------------

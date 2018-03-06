@@ -101,8 +101,6 @@ classdef modelRun_romsCascadia < modelRun
 			grid.w3.cs = repmat(reshape(grid.csw,[1 1 Kw]),[I J 1]);
 
 			run.grid = grid;
-			
-			run.wScaleFactor = 86400; % m^2/s to m^2/day
 		end % constructor
 		
 		
@@ -281,6 +279,9 @@ classdef modelRun_romsCascadia < modelRun
 		end
 		function vs = scaleV(run,v,x,y); % m/s -> deg lat per day
 			vs = v .* 86400 ./ 111325;
+		end
+		function ws = scaleW(run,w);
+			ws = w .* 86400; % m/s -> m/day
 		end
 		
 		

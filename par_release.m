@@ -28,7 +28,7 @@ for i=1:length(fields)
 end
 
 % make sure everything is consistent. Anything that requires the model run
-% itself (like harmonizing cs0 and z0) waits until par_integrate.m.
+% itself (like harmonizing sigma0 and z0) waits until par_integrate.m.
 if ~isempty(rel.sigmaTrapLevel) & ~isempty(rel.zTrapLevel)
 	warning(...
 		'either sigmaTrapLevel or zTrapLevel should be empty. Keeping sigma.');

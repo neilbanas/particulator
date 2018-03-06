@@ -38,8 +38,6 @@ classdef modelRun_biomas2d < modelRun
 				{'uo','woday','vdcday','to','aiday','hiday','osswday'};
 			run.tracerDims = [3 3 3 3 2 2 2]; % 2D or 3D?
 			
-			run.wScaleFactor = nan;
-			
 			% load grid.
 			% for now the grid is stored with the particulator code, not with 
 			% each run itself: hardwired to the 600x300x40 configuration
@@ -140,7 +138,7 @@ classdef modelRun_biomas2d < modelRun
 		
 		% reading from model files ---------------------------------------------
 		
-		
+				
 		function run = loadFrame(run,n,tracers);
 			% read one day of data from each file
 			[I,J] = size(run.grid.x);
@@ -216,16 +214,7 @@ classdef modelRun_biomas2d < modelRun
 		
 
 		% interpolating model variables ----------------------------------------
-
-		% note: there's a slice down the N Pacific, through the Gulf of Alaska,
-		% between grid.x(end,:) and grid.x(1,:) where things may not interpolate
-		% correctly.
-		% it also seems unlikely that things will interpolate correctly across
-		% the dateline.
-		% also at the pole.
-		% so perhaps a pragmatic solution would be to take all points where the 
-		% griddata() calls return NaNs and move them to the nearest non-masked
-		% point.
+		
 	
 		function H = interpH(run,x,y);
 			H = run.si.H(x,y);
@@ -269,13 +258,15 @@ classdef modelRun_biomas2d < modelRun
 		end
 		
 		
-		function us = scaleU(run,u,x,y); % m/s -> deg lon per day
+		function us = scaleU(run,u,x,y); % cm/s -> deg lon per day
 			us = u ./ 100 .* 86400 ./ 111325 ./ cos(y./180.*pi);
 		end
-		function vs = scaleV(run,v,x,y); % m/s -> deg lat per day
+		function vs = scaleV(run,v,x,y); % cm/s -> deg lat per day
 			vs = v ./ 100 .* 86400 ./ 111325;
 		end
-		
+		function ws = scaleW(run,w); % cm/s -> m/day
+			ws = w ./ 100 ./ 86400;
+		end
 		
 		function [x1,y1,active] = filterCoordinates(run,x,y);
 			active = y > run.grid.ymin;
