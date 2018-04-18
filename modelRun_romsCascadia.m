@@ -154,124 +154,81 @@ classdef modelRun_romsCascadia < modelRun
 		% interpolating model variables ----------------------------------------
 
 
-		function H = interpH(run,x,y);
-			isin = run.in_xy_bounds(x,y);
-			H = run.outOfBoundsValue .* ones(size(x));
-			if ~isempty(isin)
-				H(isin) = interp2(run.grid.lat, run.grid.lon, run.grid.H, ...
-							      y(isin), x(isin));
-			end
-		end
-		
-		function zeta = interpZeta(run,x,y,t);
-			isin = run.in_xy_bounds(x,y);
-			zeta = run.outOfBoundsValue .* ones(size(x));
-			if ~isempty(isin)
-				zeta0 = interp2(run.grid.lat, run.grid.lon, run.F0.zeta, ...
-								y(isin), x(isin));
-				zeta1 = interp2(run.grid.lat, run.grid.lon, run.F1.zeta, ...
-								y(isin), x(isin));
-				zeta(isin) = run.tinterp(t, zeta0, zeta1);
-			end
-		end
-		
-		function mask = interpMask(run,x,y,t);
-			isin = run.in_xy_bounds(x,y);
-			mask = run.outOfBoundsValue .* ones(size(x));
-			if ~isempty(isin)
-				mask0 = interp2(run.grid.lat, run.grid.lon, run.F0.mask, ...
-								y(isin), x(isin));
-				mask1 = interp2(run.grid.lat, run.grid.lon, run.F1.mask, ...
-								y(isin), x(isin));
-				mask(isin) = run.tinterp(t, mask0, mask1);
-			end
-		end
-		
-		function u = interpU(run,x,y,sigma,t);
-			isin = run.in_xy_bounds(x,y);
-			sigma1 = max(min(sigma,0),-1);
-			u = run.outOfBoundsValue .* ones(size(x));
-			if ~isempty(isin)
-				u0 = interpn(...
-				     run.grid.u3.lon, run.grid.u3.lat, run.grid.u3.cs, ...
-					 run.F0.u, x(isin), y(isin), sigma1(isin));
-				u1 = interpn(...
-				     run.grid.u3.lon, run.grid.u3.lat, run.grid.u3.cs, ...
-					 run.F1.u, x(isin), y(isin), sigma1(isin));
-				u(isin) = run.tinterp(t, u0, u1);
-			end
-		end
-
-		function v = interpV(run,x,y,sigma,t);
-			isin = run.in_xy_bounds(x,y);
-			sigma1 = max(min(sigma,0),-1);
-			v = run.outOfBoundsValue .* ones(size(x));
-			if ~isempty(isin)
-				v0 = interpn(...
-				     run.grid.v3.lon, run.grid.v3.lat, run.grid.v3.cs, ...
-					 run.F0.v, x(isin), y(isin), sigma1(isin));
-				v1 = interpn(...
-				     run.grid.v3.lon, run.grid.v3.lat, run.grid.v3.cs, ...
-					 run.F1.v, x(isin), y(isin), sigma1(isin));
-				v(isin) = run.tinterp(t, v0, v1);
-			end
-		end
-		
-		function w = interpW(run,x,y,sigma,t);
-			isin = run.in_xy_bounds(x,y);
-			sigma1 = max(min(sigma,0),-1);
-			w = run.outOfBoundsValue .* ones(size(x));
-			if ~isempty(isin)
-				w0 = interpn(...
-				     run.grid.w3.lon, run.grid.w3.lat, run.grid.w3.cs, ...
-					 run.F0.w, x(isin), y(isin), sigma1(isin));
-				w1 = interpn(...
-				     run.grid.w3.lon, run.grid.w3.lat, run.grid.w3.cs, ...
-					 run.F1.w, x(isin), y(isin), sigma1(isin));
-				w(isin) = run.tinterp(t, w0, w1);
-			end
-		end
-		
-		function Ks = interpKs(run,x,y,sigma,t);
-			isin = run.in_xy_bounds(x,y);
-			sigma1 = max(min(sigma,0),-1);
-			Ks = run.outOfBoundsValue .* ones(size(x));
-			if ~isempty(isin)
-				Ks0 = interpn(...
-				     run.grid.w3.lon, run.grid.w3.lat, run.grid.w3.cs, ...
-					 run.F0.Ks, x(isin), y(isin), sigma1(isin));
-				Ks1 = interpn(...
-				     run.grid.w3.lon, run.grid.w3.lat, run.grid.w3.cs, ...
-					 run.F1.Ks, x(isin), y(isin), sigma1(isin));
-				Ks(isin) = run.tinterp(t, Ks0, Ks1);
-			end
-		end
-		
-		function c = interpTracer(run,name,x,y,sigma,t);
+		function c = interp(run,name,x,y,sigma,t);
 			% warning: either here or in run.loadFrame(), have to deal with the
 			% case where we're interpolating between the last wet cell and the
 			% land, since land values are allowed to be nan
 			isin = run.in_xy_bounds(x,y);
-			sigma1 = max(min(sigma,0),-1);
 			c = run.outOfBoundsValue .* ones(size(x));
 			if ~isempty(isin)
-				if ndims(run.F0.(name))==2 % 2d
+				if strcmpi(name,'H')
+					c(isin) = interp2(run.grid.lat, run.grid.lon, run.grid.H,... 
+							      y(isin), x(isin));
+				elseif ndims(run.F0.(name))==2 % 2D: sigma ignored
+					% warning: ubar and vbar won't be handled correctly
 					c0 = interp2(run.grid.lat, run.grid.lon, run.F0.(name), ...
 								 x(isin), y(isin));
 					c1 = interp2(run.grid.lat, run.grid.lon, run.F1.(name), ...
 								 x(isin), y(isin));
 					c(isin) = run.tinterp(t, c0, c1);				
-				else % 3d
-					c0 = interpn(run.grid.rho3.lon, run.grid.rho3.lat, ...			
-						 run.grid.rho3.cs, ...
+				else % 3D
+					if strcmpi(name,'u')
+						gr = 'u3';
+					elseif strcmpi(name,'v')
+						gr = 'v3';
+					elseif strcmpi(name,'w') | strcmpi(name,'Ks')
+						gr = 'w3';
+					else
+						gr = 'rho3';
+					end
+					sigma1 = max(min(sigma,0),-1);
+					c0 = interpn(run.grid.(gr).lon, run.grid.(gr).lat, ...			
+						 run.grid.(gr).cs, ...
 						 run.F0.(name), x(isin), y(isin), sigma1(isin));
-					c1 = interpn(run.grid.rho3.lon, run.grid.rho3.lat, ...
-						 run.grid.rho3.cs, ...
+					c1 = interpn(run.grid.(gr).lon, run.grid.(gr).lat, ...
+						 run.grid.(gr).cs, ...
 						 run.F1.(name), x(isin), y(isin), sigma1(isin));
 					c(isin) = run.tinterp(t, c0, c1);
 				end
 			end
 		end
+		
+		
+		function c = interpDepthAverage(run,name,x,y,zMinMax,t);
+			if ndims(run.F0.name) < 3
+				c = run.interp(name,x,y,[],t);
+			else % 3D
+				[c,zax] = run.interpProfile(name,x,y,t);
+				[NP,K] = size(c);
+				zmin = repmat(zMinMax(1),[NP 1]);
+				zmin = max(zmin,min(zax));
+				zmin = repmat(zmin,[1 K]);
+				zmax = repmat(zMinMax(2),[NP 1]);
+				zmax = min(zmax,max(zax));
+				zmax = repmat(zmax,[1 K]);
+				
+				
+				
+				
+				
+				.
+				.
+				.
+			end
+		end
+		
+		
+		function [c,zax] = interpProfile(run,name,x,y,t);
+			% zax is a zaxis that reaches from sigma=-1 to sigma=0 but
+			% otherwise is something like the native model grid.
+			% if x,y are [NP 1], c and zax are [NP K'].
+			if ndims(run.F0.name) < 3
+				c = run.interp(name,x,y,[],t);
+				zax = [];
+			else % 3D
+			end			
+		end
+		
 		
 		
 		function us = scaleU(run,u,x,y); % m/s -> deg lon per day

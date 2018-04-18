@@ -30,24 +30,15 @@ classdef modelRun < handle
 		function run = advanceTo(run,n,tracers);
 		end
 		
-		function H = interpH(run,x,y);
+		function c = interp(run,name,x,y,sigma,t);
+			% if name == 'H', callable as interp('H',x,y)
+			% if a 2D variable, interp(name,x,y,t)				
 		end
-		function zeta = interpZeta(run,x,y,t);
+		function [c,zax] = interpDepthAverage(run,name,x,y,zMinMax,t);
 		end
-		function mask = interpMask(run,x,y,t);
+		function c = interpProfile(run,name,x,y,t);
 		end
-		
-		function u = interpU(run,x,y,sigma,t);
-		end
-		function v = interpV(run,x,y,sigma,t);
-		end
-		function w = interpW(run,x,y,sigma,t);
-		end
-		function Ks = interpKs(run,x,y,sigma,t);
-		end
-		function c = interpTracer(run,name,x,y,sigma,t);
-		end
-		
+
 		function us = scaleU(run,u,x,y); % native units -> deg lon/day
 		end
 		function vs = scaleV(run,v,x,y); % native units -> deg lat/day

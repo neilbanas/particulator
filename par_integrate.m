@@ -15,25 +15,6 @@ steps = [];
 saveToVar = (nargout > 0);
 
 % setup ------------------------------------------------------------------------
-% make sure flags in _rel_ are consistent and that undefined ones are set to
-% sensible defaults
-if isempty(rel.diffusive)
-	rel.diffusive = 0;
-end
-if isempty(rel.verbose)
-	rel.verbose = 0;
-end
-if ~isempty(rel.sigmaTrapLevel)
-	rel.zTrapLevel = [];
-	rel.diffusive = 0;
-end
-if ~isempty(rel.zTrapLevel)
-	rel.diffusive = 0;
-end
-if length(rel.sigma0)==1
-	rel.sigma0 = repmat(rel.sigma0,size(rel.x0));
-end
-
 if rel.verbose
 	disp('integrating with particle release...');
 	rel
@@ -51,43 +32,41 @@ end
 
 % load the initial frame
 if (rel.verbose), disp('loading first frames'); end
-run.loadFrame(n00,rel.tracers);
-run.advanceTo(n00,rel.tracers);
+tracersAndProfiles = union(rel.tracers,rel.profiles);
+run.loadFrame(n00,tracersAndProfiles);
+run.advanceTo(n00,tracersAndProfiles);
 % set up the initial set of particles--as if trajectories had previously been
 % integrated to n00
 s1.n = nn(1);
 s1.t = run.t(nn(1));
 s1.x = rel.x0;
 s1.y = rel.y0;
-if ~isempty(rel.sigma0) & isempty(rel.z0)
-	s1.sigma = rel.sigma0;
-	s1.z = [];
-elseif isempty(rel.sigma0) & ~isempty(rel.z0)
-	s1.z = rel.z0;
-	s1.sigma = [];
-elseif ~isempty(rel.sigma0) & ~isempty(rel.z0)
-	warning('either rel.sigma0 or rel.z0 should be empty. keeping sigma0');
-	s1.z = sigma2z(rel.sigma0,rel);
-	s1.sigma = [];
-else isempty(rel.sigma0) & isempty(rel.z0)
-	if ~isempty(rel.zTrapLevel)
-		s1.z = rel.zTrapLevel .* ones(size(s1.x));
-		s1.sigma = [];
-	elseif ~isempty(rel.sigmaTrapLevel)
-		s1.sigma = rel.sigmaTrapLevel .* ones(size(s1.x));
+% this is our first chance to harmonise the way sigma0 and z0 were specified
+if strcmpi(rel.verticalMode,'3D')	
+	if ~isempty(rel.sigma0)
+		s1.sigma = rel.sigma0;
 		s1.z = [];
+		if ~isempty(rel.z0)
+			warning('either sigma0 or z0 should be empty. Keeping sigma0');
+		end
+	elseif ~isempty(rel.z0)
+		s1.z = rel.z0;
+		s1.sigma = [];
 	else
 		error('can''t find sigma0 or z0 or any other clues.');
 	end
+	% for modes other than 3D, z and sigma are overwritten in interpEverything
+	% so they don't need to be defined here
 end
 dt = (run.t(nn(2)) - run.t(nn(1))) / rel.Ninternal;
 s1 = interpEverything(s1,dt,rel,run);
 steps = saveStep(s1,1,saveToVar,steps,basefilename);
 
 
+
 % main loop --------------------------------------------------------------------
 for ni = 2:length(nn)
-	run.advanceTo(nn(ni),rel.tracers);
+	run.advanceTo(nn(ni),tracersAndProfiles);
 
 	if rel.verbose
 		disp(['step ' num2str(nn(ni)) ...
@@ -132,6 +111,7 @@ s1.z = s0.z + ac .* (smid.wScaled + s0.wdiff + s0.dKsdz) .* dt;
 s1.t = s0.t + dt;
 
 
+
 % ------------------------------------------------------------------------------
 function s = interpEverything(s0,dt,rel,run);
 % takes a set of particle positions s.x, s.y, s.z, s.t and interpolates
@@ -141,37 +121,62 @@ s = s0;
 [s.x, s.y, s.active] = run.filterCoordinates(s.x, s.y);
 s.active = s.active & (s0.t >= rel.t0);
 
-s.H = run.interpH(s.x, s.y);
-s.zeta = run.interpZeta(s.x, s.y, s.t);
-s.mask = run.interpMask(s.x, s.y, s.t);
-if ~isempty(rel.zTrapLevel) % z trapped
-	s.z = rel.zTrapLevel;
+s.H = run.interp('H',s.x, s.y);
+s.zeta = run.interp('zeta',s.x, s.y, s.t);
+s.mask = run.interp('mask',s.x, s.y, s.t);
+
+if strcmpi(rel.verticalMode,'zLevel')
+	s.z = rel.verticalLevel;
 	s.sigma = z2sigma(s.z, s.H, s.zeta);
-elseif ~isempty(rel.sigmaTrapLevel) % sigma trapped
-	s.sigma = rel.sigmaTrapLevel;
-	s.z = sigma2z(s.sigma, s.H, s.zeta);
-elseif isempty(s.z) % z not defined yet
-	s.z = sigma2z(s.sigma, s.H, s.zeta);	
-else % normal case
+elseif strcmpi(rel.verticalMode,'sigmaLevel')
+	s1.sigma = rel.verticalLevel;
+	s1.z = sigma2z(s.sigma, s.H, s.zeta);
+elseif strcmpi(rel.verticalMode,'zAverage')
+	s1.z = mean(rel.verticalLevel);
 	s.sigma = z2sigma(s.z, s.H, s.zeta);
-	s.z = sigma2z(s.sigma, s.H, s.zeta);	
+else % 3D
+	if isempty(s.z) % z not defined yet, perhaps at the first step
+		s.z = sigma2z(s.sigma, s.H, s.zeta);	
+	else % normal case
+		s.sigma = z2sigma(s.z, s.H, s.zeta);
+		s.z = sigma2z(s.sigma, s.H, s.zeta);	
+	end
 end
 
-s.u = run.interpU(s.x, s.y, s.sigma, s.t);
-s.v = run.interpV(s.x, s.y, s.sigma, s.t);
-s.w = run.interpW(s.x, s.y, s.sigma, s.t);
+if strcmpi(rel.verticalMode,'zAverage')
+	s.u = run.interpDepthAverage('u', s.x, s.y, rel.verticalLevel, s.t);
+	s.v = run.interpDepthAverage('v', s.x, s.y, rel.verticalLevel, s.t);
+	s.w = run.interpDepthAverage('w', s.x, s.y, rel.verticalLevel, s.t);
+else
+	s.u = run.interp('u', s.x, s.y, s.sigma, s.t);
+	s.v = run.interp('v', s.x, s.y, s.sigma, s.t);
+	s.w = run.interp('w', s.x, s.y, s.sigma, s.t);
+end
 s.uScaled = run.scaleU(s.u, s.x, s.y);
 s.vScaled = run.scaleV(s.v, s.x, s.y);
 s.wScaled = run.scaleW(s.w, s.x, s.y);
-s.Ks = run.interpKs(s.x, s.y, s.sigma, s.t);
-for i=1:length(rel.tracers)
-	s.(rel.tracers{i}) = run.interpTracer(rel.tracers{i}, ...
-							s.x, s.y, s.sigma, s.t);
+if strcmpi(rel.verticalMode,'zAverage')
+	s.Ks = run.interpDepthAverage('Ks', s.x, s.y, rel.verticalLevel, s.t);
+	for i=1:length(rel.tracers)
+		s.(rel.tracers{i}) = run.interpDepthAverage(rel.tracers{i}, ...
+								s.x, s.y, rel.verticalLevel, s.t);
+	end
+else
+	s.Ks = run.interp('Ks', s.x, s.y, s.sigma, s.t);
+	for i=1:length(rel.tracers)
+		s.(rel.tracers{i}) = run.interpTracer(rel.tracers{i}, ...
+								s.x, s.y, s.sigma, s.t);
+	end
 end
 
-if rel.diffusive
+for i=1:length(rel.profiles)
+	[s.profiles.(rel.profiles{i}), s.profiles.z] = ...
+		run.interpProfile(rel.profiles{i}, s.x, s.y, s.t);
+end
+
+if rel.verticalDiffusion
 	dt_secs = dt .* 86400;
-		% advective velocity is stored as m/day, but this code works in
+		% advective velocity is stored as m/day, but this block of code works in
 		% m/s and m^2/s, and converts to m/day at the end
 	% diffusion gradient dKs/dz
 	wdiff_approx = sqrt(2.*s.Ks./dt_secs);
@@ -179,12 +184,12 @@ if rel.diffusive
 		% half-span to take gradient over--the scale of the next diffusive step
 	sigmatop = min(s.sigma + dsigma,0);
 	sigmabot = max(s.sigma - dsigma,-1);
-	Kstop = run.interpKs(s.x, s.y, sigmatop, s.t);
-	Ksbot = run.interpKs(s.x, s.y, sigmabot, s.t);
+	Kstop = run.interp('Ks', s.x, s.y, sigmatop, s.t);
+	Ksbot = run.interp('Ks', s.x, s.y, sigmabot, s.t);
 	s.dKsdz = (Kstop - Ksbot) ./ (sigmatop - sigmabot) ./ (s.H + s.zeta);
 	% diffusion velocity wdiff
 	sigma1 = z2sigma(s.z + 0.5.*s.dKsdz.* dt_secs, s.H, s.zeta);
-	Ks1 = run.interpKs(s.x, s.y, sigma1, s.t);
+	Ks1 = run.interp('Ks', s.x, s.y, sigma1, s.t);
 	s.wdiff = sqrt(2.*Ks1./dt_secs) .* randn(size(Ks1));
 	% now put both velocity terms in m/day
 	s.dKsdz = s.dKsdz .* 86400;
@@ -193,6 +198,7 @@ else
 	s.dKsdz = 0;
 	s.wdiff = 0;
 end
+
 
 
 % ------------------------------------------------------------------------------
@@ -204,6 +210,7 @@ s = min(max(s,-1),0);
 function z = sigma2z(sigma, H, zeta);
 if nargin < 3, zeta = 0; end
 z = min(max(sigma,-1),0) .* (H + zeta) + zeta;
+
 
 
 % ------------------------------------------------------------------------------

@@ -9,9 +9,11 @@ classdef modelRun_biomas2d < modelRun
 		year
 		griddir = 'data/biomas/';
 		dirname, basename
-		localVars, fileVars		% lookup table for associating files with
-								% standard variables
+		
+		localVars, fileVars		% lookup table for associating filenames with
+								% standard variable names
 		tracerDims				% are the named variables 2D or 3D
+		
 		avg						% setup for depth-averaging
 		pad						% setup for padding grid with strips at x=0,360
 								% for wraparound interpolation
@@ -128,7 +130,7 @@ classdef modelRun_biomas2d < modelRun
 						 run.grid.xu(fnear360) - 360];
 			run.pad.yu = run.grid.y(run.pad.indu);
 			
-			% scatteredInterpolants
+			% scatteredInterpolants for fields that don't change in time
 			run.si.H = scatteredInterpolant(...
 				run.pad.x(:),run.pad.y(:),run.grid.H(run.pad.ind));
 			run.si.mask = scatteredInterpolant(...
@@ -215,46 +217,31 @@ classdef modelRun_biomas2d < modelRun
 
 		% interpolating model variables ----------------------------------------
 		
-	
-		function H = interpH(run,x,y);
-			H = run.si.H(x,y);
+			
+		function c = interp(run,name,x,y,sigma,t);
+			if strcmpi(name,'H')
+				c = run.si.H(x,y);
+			elseif strcmpi(name,'zeta')
+				c = 0;
+			elseif strcmpi(name,'mask')
+				c = run.si.mask(x,y);
+			elseif strcmpi(name,'w')
+				c = 0;
+			else	
+				% note that sigma is ignored in all of these: 2d interpolation
+				c0 = run.F0.si.(name)(x,y);
+				c1 = run.F1.si.(name)(x,y);
+				c = run.tinterp(t, c0, c1);
+			end
 		end
 		
-		function zeta = interpZeta(run,x,y,t);
-			zeta = 0;
-		end
 		
-		function mask = interpMask(run,x,y,t);
-			mask = run.si.mask(x,y);
-			% note that t is not used here
+		function c = interpDepthAverage(run,name,x,y,zMinMax,t);
+			c = run.interp(name,x,y,[],t);
 		end
 		
 		
-		function u = interpU(run,x,y,sigma,t);
-			u0 = run.F0.si.u(x,y);
-			u1 = run.F1.si.u(x,y);
-			u = run.tinterp(t, u0, u1);
-		end
-
-		function v = interpV(run,x,y,sigma,t);
-			v0 = run.F0.si.v(x,y);
-			v1 = run.F1.si.v(x,y);
-			v = run.tinterp(t, v0, v1);
-		end
-
-		function w = interpW(run,x,y,sigma,t);
-			w = 0;
-		end
-		
-		function Ks = interpKs(run,x,y,sigma,t);
-			Ks = interpTracer(run,'Ks',x,y,sigma,t);
-		end
-		
-		function c = interpTracer(run,name,x,y,sigma,t);
-			% note that sigma is ignored in all of these--2d interpolation only
-			c0 = run.F0.si.(name)(x,y);
-			c1 = run.F1.si.(name)(x,y);
-			c = run.tinterp(t, c0, c1);
+		function [c,zax] = interpProfile(run,name,x,y,t);
 		end
 		
 		
