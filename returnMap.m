@@ -1,4 +1,4 @@
-classdef returnMap < handle
+classdef returnMap < matlab.mixin.Copyable
 
 	properties
 		x,y,H	% grid
@@ -121,13 +121,13 @@ classdef returnMap < handle
 			if doResampling
 				% resample to replace the ones that ended at invalid locations
 				[nbad,ibad,rbad] = ind2sub(size(map.M),find(~isfinite(map.M)));
-				nbadu = unique(nbad);
-				for ni=1:length(nbadu)
+				nbadu = unique(nbad);	
+				for ni=1:length(nbadu) % for each timestep with bad points ...
 					n = nbadu(ni);
 					ibadu = unique(ibad(nbad==n));
-					for ii=1:length(ibadu)
+					for ii=1:length(ibadu) % for each point with bad values
+										   % among its replicates ...
 						i = ibadu(ii);
-						% each (n,i) that had bad values among its replicates
 						rr = rbad(nbad==n & ibad==i);
 						good = find(isfinite(map.M(n,i,:)));
 						if length(good)>0
@@ -174,7 +174,13 @@ classdef returnMap < handle
 		% par_concatSteps)
 		
 		function P = integrate(map,x0,y0,t0,t1,tracers);
-			if nargin < 6, tracers = fieldnames(map.c); end
+			if nargin < 6
+				if ~isempty(map.c)
+					tracers = fieldnames(map.c);
+				else
+					tracers = {};
+				end
+			end
 			if nargin < 5, t1 = map.t(end); end
 			if nargin < 4, t0 = map.t(1); end
 			if nargin < 3, y0 = map.y; end
@@ -197,7 +203,7 @@ classdef returnMap < handle
 					% linear index corresponding to M at timestep n-1, at
 					% the positions of this particular particle set (ind),
 					% for a random choice among the replicates
-				ind(n,:) = map.M(i3);
+				ind(ni,:) = map.M(i3);
 			end
 			% intialize a structure to hold all the output
 			sz = size(x0);
