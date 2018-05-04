@@ -109,7 +109,16 @@ s1.x = s0.x + ac .*  smid.uScaled .* dt; % full step
 s1.y = s0.y + ac .*  smid.vScaled .* dt;
 s1.z = s0.z + ac .* (smid.wScaled + s0.wdiff + s0.dKsdz) .* dt;
 s1.t = s0.t + dt;
-
+if rel.avoidLand
+	% if the step is going to take the particle into a region where the
+	% interpolated land mask is less than 0.5, don't take the step
+	mask1 = run.interp('mask',s1.x,s1.y,s1.t);
+	if mask1 < 0.5
+		s1.x = s0.x;
+		s1.y = s0.y;
+		s1.z = s0.z;
+	end
+end
 
 
 % ------------------------------------------------------------------------------
