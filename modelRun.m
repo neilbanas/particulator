@@ -32,11 +32,13 @@ classdef modelRun < handle
 		
 		function c = interp(run,name,x,y,sigma,t);
 			% if name == 'H', callable as interp('H',x,y)
-			% if a 2D variable, interp(name,x,y,t)				
+			% if a 2D variable, interp(name,x,y,[],t)				
 		end
-		function [c,zax] = interpDepthAverage(run,name,x,y,zMinMax,t);
+		function c = interpDepthAverage(run,name,x,y,zMinMax,t);
 		end
 		function c = interpProfile(run,name,x,y,t);
+		end
+		function v_axis = verticalAxisForProfiles(run);
 		end
 
 		function us = scaleU(run,u,x,y); % native units -> deg lon/day

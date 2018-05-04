@@ -19,7 +19,7 @@ if isstruct(A) % series of steps stored in a variable --------------------------
 	end
 	for n=1:N
 		for i=1:length(fields)
-			P.(fields{i})(n,:) = A(n).(fields{i})(:);
+			P.(fields{i})(n,:,:) = A(n).(fields{i})(:,:);
 		end
 	end
 	
@@ -40,7 +40,7 @@ elseif ischar(A) % series of files ---------------------------------------------
 	for n=1:N
 		load(filenames{n},'step');
 		for i=1:length(fields)
-			P.(fields{i})(n,:) = step.(fields{i})(:);
+			P.(fields{i})(n,:,:) = step.(fields{i})(:,:);
 		end
 	end	
 	

@@ -179,8 +179,11 @@ else
 end
 
 for i=1:length(rel.profiles)
-	[s.profiles.(rel.profiles{i}), s.profiles.z] = ...
-		run.interpProfile(rel.profiles{i}, s.x, s.y, s.t);
+	if i==1
+		s.profiles.v_axis = run.verticalAxisForProfiles;
+	end
+	s.profiles.(rel.profiles{i}) = run.interpProfile(rel.profiles{i}, ...
+									 s.x, s.y, s.t);
 end
 
 if rel.verticalDiffusion

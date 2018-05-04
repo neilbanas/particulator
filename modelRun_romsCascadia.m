@@ -164,7 +164,8 @@ classdef modelRun_romsCascadia < modelRun
 				if strcmpi(name,'H')
 					c(isin) = interp2(run.grid.lat, run.grid.lon, run.grid.H,... 
 							      y(isin), x(isin));
-				elseif ndims(run.F0.(name))==2 % 2D: sigma ignored
+				elseif ndims(run.F0.(name))==2 % 2D
+					% sigma ignored
 					% warning: ubar and vbar won't be handled correctly
 					c0 = interp2(run.grid.lat, run.grid.lon, run.F0.(name), ...
 								 x(isin), y(isin));
@@ -198,34 +199,38 @@ classdef modelRun_romsCascadia < modelRun
 			if ndims(run.F0.name) < 3
 				c = run.interp(name,x,y,[],t);
 			else % 3D
-				[c,zax] = run.interpProfile(name,x,y,t);
-				[NP,K] = size(c);
-				zmin = repmat(zMinMax(1),[NP 1]);
-				zmin = max(zmin,min(zax));
-				zmin = repmat(zmin,[1 K]);
-				zmax = repmat(zMinMax(2),[NP 1]);
-				zmax = min(zmax,max(zax));
-				zmax = repmat(zmax,[1 K]);
-				
-				
-				
-				
-				
-				.
-				.
-				.
+				vax = run.verticalAxisForProfiles;
+				cpro = run.interpProfile(name,x,y,t);
+				c = depthAverage(cpro,vax,zMinMax);
 			end
 		end
 		
 		
-		function [c,zax] = interpProfile(run,name,x,y,t);
-			% zax is a zaxis that reaches from sigma=-1 to sigma=0 but
-			% otherwise is something like the native model grid.
-			% if x,y are [NP 1], c and zax are [NP K'].
+		function v_axis = verticalAxisForProfiles(run);
+			v_axis = run.grid.cs;
+		end
+		
+		
+		function c = interpProfile(run,name,x,y,t);
+			v_axis = run.verticalAxisForProfiles;
+			% if x,y are [NP 1], c is [NP length(v_axis)].
 			if ndims(run.F0.name) < 3
 				c = run.interp(name,x,y,[],t);
-				zax = [];
 			else % 3D
+				if strcmpi(name,'u')
+					gr = 'u3';
+				elseif strcmpi(name,'v')
+					gr = 'v3';
+				elseif strcmpi(name,'w') | strcmpi(name,'Ks')
+					gr = 'w3';
+				else
+					gr = 'rho3';
+				end
+				c0 = interpn(run.grid.(gr).lon, run.grid.(gr).lat, ...			
+					 run.grid.(gr).cs, run.F0.(name), x, y, v_axis);
+				c1 = interpn(run.grid.(gr).lon, run.grid.(gr).lat, ...
+					 run.grid.(gr).cs, run.F1.(name), x, y, v_axis);
+				c = run.tinterp(t, c0, c1);
 			end			
 		end
 		
