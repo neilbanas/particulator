@@ -15,11 +15,20 @@ if isstruct(A) % series of steps stored in a variable --------------------------
 		fields = fieldnames(A(1));
 	end
 	for i=1:length(fields)
-		P.(fields{i}) = nan.*ones([N size(A(1).(fields{i}))]);
+		if ~strcmpi(fields{i},'profiles')		
+			P.(fields{i}) = nan.*ones([N size(A(1).(fields{i}))]);
+		end
 	end
 	for n=1:N
 		for i=1:length(fields)
-			P.(fields{i})(n,:,:) = A(n).(fields{i})(:,:);
+			if ~strcmpi(fields{i},'profiles')
+				P.(fields{i})(n,:) = A(n).(fields{i})(:);
+			else
+				pro = fieldnames(A(n).profiles);
+				for j=1:length(pro)
+					P.profiles.(pro{j})(n,:,:) = A(n).profiles.(pro{j});
+				end
+			end
 		end
 	end
 	
@@ -35,12 +44,21 @@ elseif ischar(A) % series of files ---------------------------------------------
 		fields = fieldnames(step);
 	end
 	for i=1:length(fields)
-		P.(fields{i}) = nan.*ones([N size(step.(fields{i}))]);
+		if ~strcmpi(fields{i},'profiles')
+			P.(fields{i}) = nan.*ones([N size(step.(fields{i}))]);
+		end
 	end	
 	for n=1:N
 		load(filenames{n},'step');
 		for i=1:length(fields)
-			P.(fields{i})(n,:,:) = step.(fields{i})(:,:);
+			if ~strcmpi(fields{i},'profiles')
+				P.(fields{i})(n,:) = step.(fields{i})(:);
+			else
+				pro = fieldnames(step.profiles);
+				for j=1:length(pro)
+					P.profiles.(pro{j})(n,:,:) = step.profiles.(pro{j});
+				end
+			end
 		end
 	end	
 	

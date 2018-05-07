@@ -99,6 +99,16 @@ classdef modelRun_romsCascadia < modelRun
 			grid.w3.lon = repmat(reshape(grid.lon,[I J 1]),[1 1 Kw]);
 			grid.w3.lat = repmat(reshape(grid.lat,[I J 1]),[1 1 Kw]);
 			grid.w3.cs = repmat(reshape(grid.csw,[1 1 Kw]),[I J 1]);
+			
+			% find nearest wet cell for every dry cell, on the rho grid.
+			% this makes it much faster to fill in land-masked tracer values
+			% so that interpolation works correctly near the land edge.
+			grid.nearestWater = reshape(1:length(grid.lon(:)), size(grid.lon));
+			dry = grid.mask < 1;
+			wet = ~dry;
+			grid.nearestWater(dry) = griddata(...
+				grid.lon(wet), grid.lat(wet), grid.nearestWater(wet), ...
+				grid.lon(dry), grid.lat(dry), 'nearest');
 
 			run.grid = grid;
 		end % constructor
@@ -128,17 +138,25 @@ classdef modelRun_romsCascadia < modelRun
 			netcdf.close(nc);
 			% replace netcdf out-of-range values (~1e37) with something more
 			% useful. Velocity, diffusivity, and surface height should always 
-			% be finite, so set these to 0. Tracers are set to nan, although it
-			% might be better for this to be replaced with a nearest-neighbor
-			% interpolation (otherwise, need to deal with this properly in
-			% run.interpTracer()).
+			% be finite, so set these to 0.
 			run.F1.u(run.F1.u > 1e36) = 0;
 			run.F1.v(run.F1.v > 1e36) = 0;
 			run.F1.w(run.F1.w > 1e36) = 0;
 			run.F1.Ks(run.F1.Ks > 1e36) = 0;
 			run.F1.zeta(run.F1.zeta > 1e36) = 0;
 			for i=1:length(tracers)
-				run.F1.(tracers{i})(run.F1.(tracers{i}) > 1e36) = nan;
+				% bad tracer values could simply be set to nan...
+%				run.F1.(tracers{i})(run.F1.(tracers{i}) > 1e36) = nan;
+				% ... however, this causes interpolation problems when particles
+				% are within one grid cell of the land. Filling in land values
+				% with a nearest-neighbour interpolation once here means that
+				% we don't have to do it repeatedly in run.interp().
+				for k=1:size(run.F1.(tracers{i}),3)
+					Ck = run.F1.(tracers{i})(:,:,k);
+					dry = Ck > 1e36;
+					Ck(dry) = Ck(run.grid.nearestWater(dry));
+					run.F1.(tracers{i})(:,:,k) = Ck;
+				end
 			end
 			% declare this frame loaded
 			run.loadedN(2) = n;
@@ -168,9 +186,9 @@ classdef modelRun_romsCascadia < modelRun
 					% sigma ignored
 					% warning: ubar and vbar won't be handled correctly
 					c0 = interp2(run.grid.lat, run.grid.lon, run.F0.(name), ...
-								 x(isin), y(isin));
+								 y(isin), x(isin));
 					c1 = interp2(run.grid.lat, run.grid.lon, run.F1.(name), ...
-								 x(isin), y(isin));
+								 y(isin), x(isin));
 					c(isin) = run.tinterp(t, c0, c1);				
 				else % 3D
 					if strcmpi(name,'u')
@@ -196,11 +214,12 @@ classdef modelRun_romsCascadia < modelRun
 		
 		
 		function c = interpDepthAverage(run,name,x,y,zMinMax,t);
-			if ndims(run.F0.name) < 3
+			if ndims(run.F0.(name)) < 3
 				c = run.interp(name,x,y,[],t);
 			else % 3D
-				vax = run.verticalAxisForProfiles;
 				cpro = run.interpProfile(name,x,y,t);
+				vax = run.verticalAxisForProfiles;
+				vax = repmat(vax',[length(x) 1]);
 				c = depthAverage(cpro,vax,zMinMax);
 			end
 		end
@@ -214,7 +233,7 @@ classdef modelRun_romsCascadia < modelRun
 		function c = interpProfile(run,name,x,y,t);
 			v_axis = run.verticalAxisForProfiles;
 			% if x,y are [NP 1], c is [NP length(v_axis)].
-			if ndims(run.F0.name) < 3
+			if ndims(run.F0.(name)) < 3
 				c = run.interp(name,x,y,[],t);
 			else % 3D
 				if strcmpi(name,'u')
@@ -226,10 +245,13 @@ classdef modelRun_romsCascadia < modelRun
 				else
 					gr = 'rho3';
 				end
+				xx = repmat(x(:),[1 length(v_axis)]);
+				yy = repmat(y(:),[1 length(v_axis)]);
+				vv = repmat(v_axis(:)',[size(xx,1) 1]);
 				c0 = interpn(run.grid.(gr).lon, run.grid.(gr).lat, ...			
-					 run.grid.(gr).cs, run.F0.(name), x, y, v_axis);
+					 run.grid.(gr).cs, run.F0.(name), xx, yy, vv);
 				c1 = interpn(run.grid.(gr).lon, run.grid.(gr).lat, ...
-					 run.grid.(gr).cs, run.F1.(name), x, y, v_axis);
+					 run.grid.(gr).cs, run.F1.(name), xx, yy, vv);
 				c = run.tinterp(t, c0, c1);
 			end			
 		end

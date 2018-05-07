@@ -13,9 +13,11 @@ rel.sigma0 = [];
 rel.t0 = [];
 rel.t1 = [];
 rel.verticalMode = '3D'; % 3D | zLevel | sigmaLevel | zAverage
-rel.verticalLevel = []; % if mode is 3D, this is ignored;
-						% if zLevel or sigmaLevel, this should be a scalar;
-						% if zAverage, it should be [min max]
+rel.verticalLevel = [];
+	% if mode is 3D, this is ignored.
+	% if zLevel or sigmaLevel, this should be a scalar, or else empty
+	%    (in which case each particle is trapped at its initial sigma value).
+	% if zAverage, it should be [min max]
 rel.verticalDiffusion = 1; % this is only allowed if verticalMode is 3D
 rel.tracers = {}; % tracers to save as scalar time series
 rel.profiles = {}; % tracers to save as complete vertical profiles
@@ -34,20 +36,36 @@ end
 
 
 % make sure everything is consistent. Anything that requires the model run
-% itself (like harmonizing sigma0 and z0) waits until par_integrate.m.
+% itself (like filling in sigma0 from z0 or vice versa) waits until 
+% par_integrate.m.
 if strcmpi(rel.verticalMode,'3D')
 	rel.verticalLevel = [];
 else
 	rel.verticalDiffusion = 0;
 	if strcmpi(rel.verticalMode,'sigmaLevel')
-		rel.verticalLevel = min(max(rel.verticalLevel,-1),0);
+		if ~isempty(rel.verticalLevel)
+			rel.sigma0 = min(max(rel.verticalLevel,-1),0);
+		else
+			rel.verticalLevel = min(max(rel.sigma0,-1),0);
+		end
+		rel.z0 = [];
+	elseif strcmpi(rel.verticalMode,'zLevel')
+		if ~isempty(rel.verticalLevel)
+			rel.z0 = rel.verticalLevel;
+		else
+			rel.verticalLevel = rel.z0;
+		end
+		rel.sigma0 = [];
 	elseif strcmpi(rel.verticalMode,'zAverage')
 		rel.verticalLevel = sort(rel.verticalLevel);
+		rel.z0 = mean(rel.verticalLevel);
+		rel.sigma0 = [];
 	end
 end
 if length(rel.sigma0)==1
 	rel.sigma0 = repmat(rel.sigma0,size(rel.x0));
-	% could handle more special cases along these lines--this one seems to be
-	% the most common
+end
+if length(rel.z0)==1
+	rel.z0 = repmat(rel.z0,size(rel.x0));
 end
 

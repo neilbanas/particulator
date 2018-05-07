@@ -131,17 +131,17 @@ s = s0;
 s.active = s.active & (s0.t >= rel.t0);
 
 s.H = run.interp('H',s.x, s.y);
-s.zeta = run.interp('zeta',s.x, s.y, s.t);
-s.mask = run.interp('mask',s.x, s.y, s.t);
+s.zeta = run.interp('zeta',s.x, s.y, [], s.t);
+s.mask = run.interp('mask',s.x, s.y, [], s.t);
 
 if strcmpi(rel.verticalMode,'zLevel')
 	s.z = rel.verticalLevel;
 	s.sigma = z2sigma(s.z, s.H, s.zeta);
 elseif strcmpi(rel.verticalMode,'sigmaLevel')
-	s1.sigma = rel.verticalLevel;
-	s1.z = sigma2z(s.sigma, s.H, s.zeta);
+	s.sigma = rel.verticalLevel;
+	s.z = sigma2z(s.sigma, s.H, s.zeta);
 elseif strcmpi(rel.verticalMode,'zAverage')
-	s1.z = mean(rel.verticalLevel);
+	s.z = mean(rel.verticalLevel);
 	s.sigma = z2sigma(s.z, s.H, s.zeta);
 else % 3D
 	if isempty(s.z) % z not defined yet, perhaps at the first step
@@ -163,7 +163,7 @@ else
 end
 s.uScaled = run.scaleU(s.u, s.x, s.y);
 s.vScaled = run.scaleV(s.v, s.x, s.y);
-s.wScaled = run.scaleW(s.w, s.x, s.y);
+s.wScaled = run.scaleW(s.w);
 if strcmpi(rel.verticalMode,'zAverage')
 	s.Ks = run.interpDepthAverage('Ks', s.x, s.y, rel.verticalLevel, s.t);
 	for i=1:length(rel.tracers)
@@ -173,7 +173,7 @@ if strcmpi(rel.verticalMode,'zAverage')
 else
 	s.Ks = run.interp('Ks', s.x, s.y, s.sigma, s.t);
 	for i=1:length(rel.tracers)
-		s.(rel.tracers{i}) = run.interpTracer(rel.tracers{i}, ...
+		s.(rel.tracers{i}) = run.interp(rel.tracers{i}, ...
 								s.x, s.y, s.sigma, s.t);
 	end
 end
