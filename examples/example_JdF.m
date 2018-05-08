@@ -14,18 +14,18 @@ x0 = -125.8 : 0.02 : -125;
 y0 = 48.2 : 0.02 : 48.8; % grid in the JdF Eddy region
 sigma0 = [-0.75 0]; % surface and (fairly) deep
 [x0,y0,sigma0] = ndgrid(x0(:),y0(:),sigma0(:)); % make a 3D grid out of those
-H0 = run.interpH(x0,y0); % get bottom depth from the model run
+H0 = run.interp('H',x0,y0); % get bottom depth from the model run
 x0 = x0(H0>50); % keep only points beyond the 50 m isobath
 y0 = y0(H0>50);
 sigma0 = sigma0(H0>50); 
 % time
 t0 = run.t(1) .* ones(size(x0)); % start at first model save
 t1 = run.t(end) .* ones(size(x0));
-t1 = min(t1, t0 + 10); % track for 20 days or until the last save
+t1 = min(t1, t0 + 10); % track for 10 days or until the last save
 
 % set timestep
 DT_saves = run.t(2) - run.t(1);
-Ninternal = 24; % internal timesteps for particle integration per interval
+Ninternal = 8; % internal timesteps for particle integration per interval
 			   % between saved frames in the model run
 disp(['integrating ' num2str(length(x0(:))) ' particles with a timestep of ' ...
 	  num2str(DT_saves/Ninternal) ' days']);
@@ -35,7 +35,9 @@ disp(['integrating ' num2str(length(x0(:))) ' particles with a timestep of ' ...
 % summarizing all the choices above
 rel = par_release('x0',x0,'y0',y0,'sigma0',sigma0,'t0',t0,'t1',t1,...
 				  'Ninternal',Ninternal,...
-				  'tracers',{'salt','temp'});
+				  'tracers',{'salt','temp'},...
+				  'verticalMode','sigmaLevel');
+%				  'verticalMode','zAverage','verticalLevel',[-5 100]);
 rel.verbose = 1; % extra diagnostic info please
 
 							
@@ -62,13 +64,15 @@ plot(P.x(1,:),P.y(1,:),'g.'); % start locations
 plot(P.x(end,:),P.y(end,:),'r.'); % end locations
 contour(run.grid.lon,run.grid.lat,run.grid.mask,[0.5 0.5],'k'); % coastline
 
-figure
-subplot 311
-plot(P.t,P.z(:,fsurf),'b',P.t,P.z(:,fdeep),'k'); % depth vs time
-ylabel('depth (m)');
-datetick('x','mmm dd');
+if size(P.z,2) > 1
+	figure
+	subplot 311
+	plot(P.t,P.z(:,fsurf),'b',P.t,P.z(:,fdeep),'k'); % depth vs time
+	ylabel('depth (m)');
+	datetick('x','mmm dd');
 
-subplot 312
-plot(P.t,P.salt(:,fsurf),'b',P.t,P.salt(:,fdeep),'k'); % salinity vs time
-ylabel('salinity (psu)');
-datetick('x','mmm dd');
+	subplot 312
+	plot(P.t,P.salt(:,fsurf),'b',P.t,P.salt(:,fdeep),'k'); % salinity vs time
+	ylabel('salinity (psu)');
+	datetick('x','mmm dd');
+end

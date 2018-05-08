@@ -3,8 +3,11 @@ function cavg = depthAverage(c,z,zr);
 % cavg = depthAverage(c,z,zr);
 %
 % integrates c(z) from zr(1) to zr(2).
-% c and z are both size [I K], where K is the z dimension. There's no assumption 
-% that z is uniform in the K direction: each column is handled separately.
+% c is size [I K], where K is the z dimension.
+% if z is also size [I K], then there's no assumption that it is uniform in the
+% I dimension, and the code is nice and general but painfully slow if run many
+% times over (as in particle tracking with depth averaged velocities).
+% if z is size [1 K], then this is much faster.
 
 zr = sort(zr);
 [I,K] = size(c);
@@ -19,9 +22,16 @@ zmax = min(zmax,max(z,[],2));
 % interpolate c onto zmin and zmax, and sort to include these points in the
 % c(z) mesh
 ii = (1:I)';
-iii = repmat(ii,[1 K]);
-c_zmin = griddata(iii,z,c,ii,zmin);
-c_zmax = griddata(iii,z,c,ii,zmax);
+if size(z,1)==I % general, slow version
+	iii = repmat(ii,[1 K]);
+	c_zmin = griddata(iii,z,c,ii,zmin);
+	c_zmax = griddata(iii,z,c,ii,zmax);
+else
+	[zz,iii] = meshgrid(z,ii);
+	c_zmin = interp2(zz,iii,c,zmin,ii);
+	c_zmax = interp2(zz,iii,c,zmax,ii);	
+	z = repmat(z,[I 1]);
+end
 z = cat(2,z,zmin,zmax);
 c = cat(2,c,c_zmin,c_zmax);
 [z,sorti] = sort(z,2);

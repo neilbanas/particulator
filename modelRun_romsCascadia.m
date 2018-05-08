@@ -219,7 +219,7 @@ classdef modelRun_romsCascadia < modelRun
 			else % 3D
 				cpro = run.interpProfile(name,x,y,t);
 				vax = run.verticalAxisForProfiles;
-				vax = repmat(vax',[length(x) 1]);
+				vax = vax(:)';
 				c = depthAverage(cpro,vax,zMinMax);
 			end
 		end

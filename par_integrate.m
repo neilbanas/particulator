@@ -135,13 +135,13 @@ s.zeta = run.interp('zeta',s.x, s.y, [], s.t);
 s.mask = run.interp('mask',s.x, s.y, [], s.t);
 
 if strcmpi(rel.verticalMode,'zLevel')
-	s.z = rel.verticalLevel;
+	s.z = repmat(rel.verticalLevel,size(s.x));
 	s.sigma = z2sigma(s.z, s.H, s.zeta);
 elseif strcmpi(rel.verticalMode,'sigmaLevel')
-	s.sigma = rel.verticalLevel;
+	s.sigma = repmat(rel.verticalLevel,size(s.x));
 	s.z = sigma2z(s.sigma, s.H, s.zeta);
 elseif strcmpi(rel.verticalMode,'zAverage')
-	s.z = mean(rel.verticalLevel);
+	s.z = repmat(mean(rel.verticalLevel),size(s.x));
 	s.sigma = z2sigma(s.z, s.H, s.zeta);
 else % 3D
 	if isempty(s.z) % z not defined yet, perhaps at the first step
