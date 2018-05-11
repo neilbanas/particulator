@@ -61,6 +61,8 @@ else
 		rel.verticalLevel = sort(rel.verticalLevel);
 		rel.z0 = mean(rel.verticalLevel);
 		rel.sigma0 = [];
+	else
+		error(['don''t recognise the verticalMode ''' rel.verticalMode '''.']);
 	end
 end
 if length(rel.sigma0)==1

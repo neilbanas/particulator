@@ -32,10 +32,13 @@ classdef modelRun_biomas2d < modelRun
 			run.basename = ['_600_300.H' num2str(run.year)];
 			run.localVars = {'uv','w','Ks','temp','ice','iceh','swrad'};
 				% physical variables have been renamed according to a personal,
-				% ROMS-ish convention (ice = fractional ice cover, iceh = ice
-				% thickness, swrad = shortwave radiation, of which PAR is 0.43).
+				% ROMS-ish convention.
+				%	ice = fractional ice cover
+				%	iceh = ice thickness
+				% 	swrad = shortwave radiation, of which PAR is 0.43
 				% any var not in this list (like all the bio vars) is presumed
-				% to be in a file with the same prefix as the var name.
+				% to be in a file with the same prefix as the var name--and also
+				% presumed to be 3D.
 			run.fileVars = ...
 				{'uo','woday','vdcday','to','aiday','hiday','osswday'};
 			run.tracerDims = [3 3 3 3 2 2 2]; % 2D or 3D?
@@ -113,7 +116,7 @@ classdef modelRun_biomas2d < modelRun
 			run.avg.dz = dz3;
 			run.avg.dz(run.avg.mask==0) = 0;
 			run.avg.h = sum(run.avg.dz,3);
-			
+
 			% setup for padding fields at x~0 and x~360
 			padWidth = 1; % deg longitude
 			fnear0 = find(grid.x < padWidth);
@@ -135,78 +138,109 @@ classdef modelRun_biomas2d < modelRun
 				run.pad.x(:),run.pad.y(:),run.grid.H(run.pad.ind));
 			run.si.mask = scatteredInterpolant(...
 				run.pad.x(:),run.pad.y(:),double(run.grid.mask(run.pad.ind)));
+				
+			% scatteredInterpolants for (i,j) indices in the horizontal. This
+			% is setup for interpProfile()
+			[ii,jj] = meshgrid(1:NN(2),1:NN(1));
+			run.si.ii = scatteredInterpolant(...
+				run.pad.x(:),run.pad.y(:),ii(run.pad.ind));
+			run.si.jj = scatteredInterpolant(...
+				run.pad.x(:),run.pad.y(:),jj(run.pad.ind));
 		end % constructor
 		
 		
 		% reading from model files ---------------------------------------------
 		
-				
-		function run = loadFrame(run,n,tracers);
-			% read one day of data from each file
+		
+		function fid = openFile(run,localVar);
+			[I,J] = size(run.grid.x);
+			K = length(run.grid.dz);
+			framelength = I * J * K * 4;
+			
+			j = find(strcmp(localVar,run.localVars));
+			prefix = [run.fileVars{j}];
+			if isempty(prefix)
+				prefix = localVar;
+			end
+			
+			fid = fopen([run.dirname prefix run.basename]);
+		end
+		
+		
+		function C = read3D(run,localVar,n);
 			[I,J] = size(run.grid.x);
 			K = length(run.grid.dz);
 			framelength = I * J * K * 4;
 				% bytes per 600x300x40 frame of one variable
+			fid = run.openFile(localVar);			
+			fseek(fid,framelength*(n-1),-1);
+			C = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
+			C(~isfinite(C)) = 0; % this isn't really right for all variables
+			fclose(fid);
+		end
+		
+		
+		function C = read2D(run,localVar,n);
+			[I,J] = size(run.grid.x);
+			framelength = I * J * 4;
+				% bytes per 600x300 frame of one variable
+			fid = run.openFile(localVar);			
+			fseek(fid,framelength*(n-1),-1);
+			C = reshape(fread(fid,I*J,'real*4'),[I J]);
+			C(~isfinite(C)) = 0;
+			fclose(fid);
+		end
+				
+				
+		% consider wrapping each variable around the first dimension,
+		% ([1:end 1],:), in order to make things interpolate correctly at
+		% x ~ 210 in the N Pacific.
+
+		function run = loadFrame(run,n,tracers);
 			% u and v
-			fid = fopen([run.dirname ...
-					run.fileVars{strcmp('uv',run.localVars)} ...
-					run.basename]);
-			fseek(fid,framelength*(n-1),-1);
-			A = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
-			run.F1.u = sum(A.*run.avg.dz,3) ./ run.avg.h;
-			run.F1.u(~isfinite(run.F1.u)) = 0;
-			fseek(fid,framelength*(365+n-1),-1);			
-			A = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
-			run.F1.v = sum(A.*run.avg.dz,3) ./ run.avg.h;
-			run.F1.v(~isfinite(run.F1.v)) = 0;
-			fclose(fid);
-				% perhaps could wrap these around the first dimension...
-				% ([1:end 1],:)
-				% ... and likewise for all other fields, in order to make
-				% things interpolate correctly at x ~ 210 in the N Pacific.
+			run.F1.u = run.read3D('uv',n);
+			run.F1.v = run.read3D('uv',365+n); % because the two variables
+										       % are concatenated in one file
 			% Ks
-			fid = fopen([run.dirname ...
-					run.fileVars{strcmp('Ks',run.localVars)} ...
-					run.basename]);
-			fseek(fid,framelength*(n-1),-1);
-			A = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
-			run.F1.Ks = sum(A.*run.avg.dz,3) ./ run.avg.h;
-			run.F1.Ks(~isfinite(run.F1.Ks)) = 0;
-			fclose(fid);
-				% is Ks on the tracer grid or the w grid?
-				% this version assumes tracer grid
+			run.F1.Ks = run.read3D('Ks',n);	% assumes Ks is on the tracer grid,
+									        % not the w grid
 			% everything else
 			for i=1:length(tracers)
 				j = find(strcmp(tracers{i},run.localVars));
-				prefix = [run.fileVars{j}];
-				if isempty(prefix), prefix = tracers{i}; end
-				fid = fopen([run.dirname prefix run.basename]);
-				if ~isempty(j) & run.tracerDims(j)==2 % 2D tracer
-					fseek(fid,framelength/K*(n-1),-1);
-					A = reshape(fread(fid,I*J,'real*4'),[I J]);
-					run.F1.(tracers{i}) = A;
-				else % 3D tracer
-					fseek(fid,framelength*(n-1),-1);
-					A = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
-					run.F1.(tracers{i}) = sum(A.*run.avg.dz,3) ./ run.avg.h;
-					run.F1.(tracers{i})(~isfinite(run.F1.(tracers{i}))) = 0;
+				if ~isempty(j) && run.tracerDims(j)==2
+					run.F1.(tracers{i}) = run.read2D(tracers{i},n);
+				else
+					run.F1.(tracers{i}) = run.read3D(tracers{i},n);
 				end
-				fclose(fid);
 			end
-			% create scatteredInterpolant objects for all fields
-			run.F1.si.u = scatteredInterpolant(...
-				run.pad.xu,run.pad.yu,run.F1.u(run.pad.indu));
-			run.F1.si.v = scatteredInterpolant(...
-				run.pad.xu,run.pad.yu,run.F1.v(run.pad.indu));
-			run.F1.si.Ks = scatteredInterpolant(...
-				run.pad.x,run.pad.y,run.F1.Ks(run.pad.ind));
-			for i=1:length(tracers)
-				run.F1.si.(tracers{i}) = scatteredInterpolant(...
-					run.pad.x,run.pad.y,run.F1.(tracers{i})(run.pad.ind));
-			end
+
+			% create scatteredInterpolant objects for depth averages of
+			% all fields. This makes repeated calls to interp() much faster.
+			fields = fieldnames(run.F1);
+			for i=1:length(fields)
+				if isnumeric(run.F1.(fields{i}))
+					% depth-average if necessary
+					if ndims(run.F1.(fields{i})) == 3
+						C = run.F1.(fields{i});
+					else
+						C = sum(run.F1.(fields{i}) .* run.avg.dz, 3) ...
+							./ run.avg.h;
+					end
+					% now make the scatteredInterpolant
+					if strcmpi(fields{i},'u') || strcmpi(fields{i},'v')
+						run.F1.si.(fields{i}) = scatteredInterpolant(...
+							run.pad.xu, run.pad.yu, C(run.pad.indu));
+					else
+						run.F1.si.(fields{i}) = scatteredInterpolant(...
+							run.pad.x, run.pad.y, C(run.pad.ind));
+					end
+				end
+			end	
+
 			% declare this frame loaded
 			run.loadedN(2) = n;
 		end
+	
 		
 		function run = advanceTo(run,n,tracers);
 			run.F0 = run.F1;
@@ -228,7 +262,8 @@ classdef modelRun_biomas2d < modelRun
 			elseif strcmpi(name,'w')
 				c = 0;
 			else	
-				% note that sigma is ignored in all of these: 2d interpolation
+				% note that sigma is ignored in all of these--
+				% no 3D interpolations at all!				
 				c0 = run.F0.si.(name)(x,y);
 				c1 = run.F1.si.(name)(x,y);
 				c = run.tinterp(t, c0, c1);
@@ -241,7 +276,39 @@ classdef modelRun_biomas2d < modelRun
 		end
 		
 		
-		function [c,zax] = interpProfile(run,name,x,y,t);
+		function v_axis = verticalAxisForProfiles(run);
+			v_axis = run.grid.z; % ignoring everything on the w grid
+		end
+		
+		function c = interpProfile(run,name,x,y,t);
+			% find fractional indices of all the (x,y) points
+			ii = run.si.ii(x,y);
+			jj = run.si.jj(x,y);
+			
+			% find the indices of the 2x2 columns of points that surround
+			% each (x,y) 
+			[J,I] = size(run.grid.x);
+			K = size(run.F1.u,3);
+			ii0 = min(I-1, max(1, floor(ii)));
+			a = ii - ii0;
+			ii0 = repmat(ii0(:), [1 K]);
+			jj0 = min(J-1, max(1, floor(jj)));
+			b = jj - jj0;
+			jj0 = repmat(jj0(:), [1 K]);
+			kk = repmat((1:K), [length(x) 1]);
+			ind00 = sub2ind([J I K], jj0,   ii0,   kk);
+			ind01 = sub2ind([J I K], jj0,   ii0+1, kk);
+			ind10 = sub2ind([J I K], jj0+1, ii0,   kk);
+			ind11 = sub2ind([J I K], jj0+1, ii0+1, kk);
+			c_n0 = (1-a) .* (1-b).* run.F0.(name)(ind00) ...
+				 + (1-a) .*    b .* run.F0.(name)(ind10) ...
+				 + a     .* (1-b).* run.F0.(name)(ind01) ...
+				 + a     .*    b .* run.F0.(name)(ind11);
+			c_n1 = (1-a) .* (1-b).* run.F1.(name)(ind00) ...
+				 + (1-a) .*    b .* run.F1.(name)(ind10) ...
+				 + a     .* (1-b).* run.F1.(name)(ind01) ...
+				 + a     .*    b .* run.F1.(name)(ind11);
+			c = run.tinterp(t,c_n0,c_n1);
 		end
 		
 		
