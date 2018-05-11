@@ -112,11 +112,12 @@ s1.t = s0.t + dt;
 if rel.avoidLand
 	% if the step is going to take the particle into a region where the
 	% interpolated land mask is less than 0.5, don't take the step
-	mask1 = run.interp('mask',s1.x,s1.y,s1.t);
-	if mask1 < 0.5
-		s1.x = s0.x;
-		s1.y = s0.y;
-		s1.z = s0.z;
+	mask1 = run.interp('mask',s1.x,s1.y,[],s1.t);
+	f = find(mask1 < rel.landThreshhold);
+	if ~isempty(f)
+		s1.x(f) = s0.x(f);
+		s1.y(f) = s0.y(f);
+		s1.z(f) = s0.z(f);
 	end
 end
 

@@ -22,8 +22,9 @@ rel.verticalDiffusion = 1; % this is only allowed if verticalMode is 3D
 rel.tracers = {}; % tracers to save as scalar time series
 rel.profiles = {}; % tracers to save as complete vertical profiles
 rel.Ninternal = 2; % internal timesteps per frame of saved model output
-rel.avoidLand = 0; % don't take steps that would place the particle
-				   % at a point where the interpolated land mask < 0.5
+rel.avoidLand = 1; % if 1, don't take steps that would place the particle
+				   % at a point where the interpolated mask < landThreshhold
+rel.landThreshhold = 0.5;
 rel.verbose = 0; % quiet about status updates unless this is turned on
 
 
