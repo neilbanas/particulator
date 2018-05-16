@@ -14,7 +14,7 @@ classdef modelRun_biomas2d < modelRun
 								% standard variable names
 		tracerDims				% are the named variables 2D or 3D
 		
-		avg						% setup for depth-averaging
+		avg, avgu				% setup for depth-averaging
 		pad						% setup for padding grid with strips at x=0,360
 								% for wraparound interpolation
 		si						% scatteredInterpolant objects for fields
@@ -30,7 +30,12 @@ classdef modelRun_biomas2d < modelRun
 			
 			run.dirname = dirname;
 			run.basename = ['_600_300.H' num2str(run.year)];
-			run.localVars = {'uv','w','Ks','temp','ice','iceh','swrad'};
+			run.localVars = ...
+				{'uv', 'w',    'Ks',    'temp', 'ice',  'iceh', 'swrad'};
+			run.fileVars = ...
+				{'uo', 'woday','vdcday','to',  'aiday', 'hiday','osswday'};
+			run.tracerDims = ...
+				[ 3     3       3        3      2        2       2]; % 2D or 3D
 				% physical variables have been renamed according to a personal,
 				% ROMS-ish convention.
 				%	ice = fractional ice cover
@@ -39,9 +44,6 @@ classdef modelRun_biomas2d < modelRun
 				% any var not in this list (like all the bio vars) is presumed
 				% to be in a file with the same prefix as the var name--and also
 				% presumed to be 3D.
-			run.fileVars = ...
-				{'uo','woday','vdcday','to','aiday','hiday','osswday'};
-			run.tracerDims = [3 3 3 3 2 2 2]; % 2D or 3D?
 			
 			% load grid.
 			% for now the grid is stored with the particulator code, not with 
@@ -77,7 +79,7 @@ classdef modelRun_biomas2d < modelRun
 			grid.dz = grid.dz./100; % cm -> m
 			grid.zw = -cumsum(grid.dz(:));
 			grid.z = grid.zw + grid.dz./2;
-			% depths and land mask
+			% depths and land mask on the tracer grid
 			fid = fopen([run.griddir 'levels_40_t_aBering1']);
 			a = fread(fid);
 			fclose(fid);
@@ -86,10 +88,23 @@ classdef modelRun_biomas2d < modelRun
 			a(a==' ') = '0';
 			a = a - '0';
 			k = 10.*a(:,1) + a(:,2);
-			grid.mask = reshape(k > 0,NN);
+			grid.mask_rho = reshape(k > 0,NN);
 			grid.H = zeros(NN);
-			grid.H(grid.mask) = -grid.zw(k(grid.mask));
-
+			grid.H(grid.mask_rho) = -grid.zw(k(grid.mask_rho));
+			% depths and velocity-based land mask on the u grid.
+			% this is more conservative (classifies more coastal points as land)
+			load([griddir 'velocityBasedMask.mat'],'masku');
+			grid.masku = masku;
+			grid.Hu = griddata(grid.x,grid.y,grid.H,grid.xu,grid.yu);
+			% for consistency's sake, we need a final mask variable called
+			% "mask" that behaves well for both tracers and velocity--this is
+			% what gets used by rel.avoidLand, for example
+			% the naming would get confusing if this were on the u grid,
+			% so it's on the tracer grid, even though it is controlled almost
+			% entirely by the velocity-based mask
+			grid.mask = double(grid.mask_rho==1 ...
+				& griddata(grid.xu,grid.yu,grid.masku,grid.x,grid.y)>0.5);
+			
 			% the only bound where it's possible to be out of bounds
 			grid.ymin = min(grid.y(:));
 			
@@ -109,6 +124,7 @@ classdef modelRun_biomas2d < modelRun
 			K = length(run.grid.zw);
 			zw3 = repmat(reshape(run.grid.zw,[1 1 K]),[I J 1]);
 			dz3 = repmat(reshape(run.grid.dz,[1 1 K]),[I J 1]);
+			% on the rho/tracer grid
 			H3 = repmat(run.grid.H,[1 1 K]);
 			run.avg.mask = zeros(I,J,K);
 			run.avg.mask(:,:,run.avg.kRange(1):run.avg.kRange(2)) = 1;
@@ -116,6 +132,16 @@ classdef modelRun_biomas2d < modelRun
 			run.avg.dz = dz3;
 			run.avg.dz(run.avg.mask==0) = 0;
 			run.avg.h = sum(run.avg.dz,3);
+			% and again on the u/velocity grid
+			Hu3 = repmat(run.grid.Hu,[1 1 K]);
+			run.avgu.kRange = run.avg.kRange;
+			run.avgu.zRange = run.avg.zRange;
+			run.avgu.mask = zeros(I,J,K);
+			run.avgu.mask(:,:,run.avg.kRange(1):run.avg.kRange(2)) = 1;
+			run.avgu.mask(zw3 < -Hu3) = 0;
+			run.avgu.dz = dz3;
+			run.avgu.dz(run.avgu.mask==0) = 0;
+			run.avgu.h = sum(run.avgu.dz,3);
 
 			% setup for padding fields at x~0 and x~360
 			padWidth = 1; % deg longitude
@@ -220,8 +246,11 @@ classdef modelRun_biomas2d < modelRun
 			for i=1:length(fields)
 				if isnumeric(run.F1.(fields{i}))
 					% depth-average if necessary
-					if ndims(run.F1.(fields{i})) == 3
+					if ndims(run.F1.(fields{i})) == 2
 						C = run.F1.(fields{i});
+					elseif strcmpi(fields{i},'u') || strcmpi(fields{i},'v')
+						C = sum(run.F1.(fields{i}) .* run.avgu.dz, 3) ...
+							./ run.avgu.h;
 					else
 						C = sum(run.F1.(fields{i}) .* run.avg.dz, 3) ...
 							./ run.avg.h;
