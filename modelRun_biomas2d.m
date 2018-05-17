@@ -224,9 +224,9 @@ classdef modelRun_biomas2d < modelRun
 
 		function run = loadFrame(run,n,tracers);
 			% u and v
-			run.F1.u = run.read3D('uv',n);
-			run.F1.v = run.read3D('uv',365+n); % because the two variables
-										       % are concatenated in one file
+			run.F1.u = run.read3D('uv',2*n-1);
+			run.F1.v = run.read3D('uv',2*n); % because the two variables
+										     % are striped in one file
 			% Ks
 			run.F1.Ks = run.read3D('Ks',n);	% assumes Ks is on the tracer grid,
 									        % not the w grid
