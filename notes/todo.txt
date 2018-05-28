@@ -13,6 +13,8 @@ the units used in the grid, calling these x,y, and converting velocities for
 each particle at each timestep. I don't see why this wouldn't work, but it's
 not what I ended up doing in the Processing version of particulator.
  
+* the vertical random walk is behaving well according to a rough eyeball test, but it might warrant simplifying or complexifying.
+
 
 
 FEATURES TO ADD
@@ -20,5 +22,6 @@ FEATURES TO ADD
 * test better that output from dir() that I assume to be numbered sequentially
 actually is numbered sequentially
 
-* allow sigmaTrapLevel or zTrapLevel to be a two-element vector, meaning an average over a range, in romsCascadia
+* horizontal dispersion in depth-averaged particle tracking
 
+* the treatment of vertical coordinates in ROMS isn't fully general

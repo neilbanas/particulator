@@ -8,7 +8,7 @@ zeta	free surface height. sigma = 0 <==> z = zeta
 
 t		time, in units consistent with u,v,w
 u,v,w	advective velocities in x,y,z directions
-Ks	vertical diffusivity for tracers
+Ks		vertical diffusivity for tracers
 wdiff	random-walk vertical velocity representing diffusion
 dksdz	a first-order correction to the vertical diffusion velocity
 		(a "random displacement" scheme)--in practice diffusion should always
@@ -17,9 +17,11 @@ dksdz	a first-order correction to the vertical diffusion velocity
 n,k,j,i	indices in t,z,y,x directions
 N,K,J,I	size of a matrix in t,z,y,x directions
 
-standard names for tracers:
+
+standard internal names for tracers:
+
 temp	temperature
 salt	salinity
-ice	ice cover
+ice		ice cover
 iceh	ice thickness
 swrad	shortwave radiation (PAR is usually 0.43 * swrad)
