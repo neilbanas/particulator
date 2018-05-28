@@ -24,10 +24,8 @@ umax = max(umag,[],3);
 xu = run.grid.xu;
 yu = run.grid.yu;
 masku = double(umax>0);
-% there are 2 rho points in Franz Josef Land where interpolating from this 
-% velocity-based u mask onto the rho mask, one would think there was flow but 
-% really there's land
-% meanwhile, there are 1451 rho points on the coastal margins where the rho mask
-% says there is water but the interpolated flow is 0
-% results are similar interpolating the other way, from rho points to u points
+% there are a handful of points that the rho/tracer mask says are land but
+% where interpolating velocity with griddata would give a nonzero velocity
+% but there are ~4000 points along the coastal margins where the rho mask shows 
+% water but velocities are 0
 save velocityBasedMask xu yu masku
