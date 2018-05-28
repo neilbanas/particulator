@@ -61,7 +61,7 @@ classdef returnMap < matlab.mixin.Copyable
 			sigma0 = nan; % haven't figured out how this should behave--
 						  % so for now only covering cases where this is
 						  % ignored anyway, like biomas2d
-			map.H = run.interpH(map.x,map.y);
+			map.H = run.interp('H',map.x,map.y);
 			n00 = floor(interp1(run.t, 1:run.numFrames, map.t(1)));
 			run.loadFrame(n00,opt.tracers);
 			run.advanceTo(n00,opt.tracers);
@@ -88,7 +88,7 @@ classdef returnMap < matlab.mixin.Copyable
 				% (from the end of par_integrate above) it's a good time to
 				% look up tracer values...
 				for j=1:length(opt.tracers)
-					map.c.(opt.tracers{j})(ni+1,:) = run.interpTracer(...
+					map.c.(opt.tracers{j})(ni+1,:) = run.interp(...
 						opt.tracers{j},map.x,map.y,sigma0,map.t(ni+1));
 				end
 			end
