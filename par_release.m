@@ -19,6 +19,14 @@ rel.verticalLevel = [];
 	%    (in which case each particle is trapped at its initial sigma value).
 	% if zAverage, it should be [min max]
 rel.verticalDiffusion = 1; % this is only allowed if verticalMode is 3D
+rel.horizIsotropicDiffusivity = 0; % if 0, non-diffusive; otherwise,
+								   % horizontal diffusivity, in units that
+								   % match the native velocity units:
+								   % [velocity]^2 * sec
+rel.horizShearDiffusion = 0; % if 1, adds a diffusivity in the direction
+							 % of the depth-average flow proportional to
+							 % the depth-average speed (only makes sense
+							 % when using zAverage)
 rel.tracers = {}; % tracers to save as scalar time series
 rel.profiles = {}; % tracers to save as complete vertical profiles
 rel.Ninternal = 2; % internal timesteps per frame of saved model output
@@ -41,6 +49,7 @@ end
 % par_integrate.m.
 if strcmpi(rel.verticalMode,'3D')
 	rel.verticalLevel = [];
+	rel.horizShearDiffusion = 0;
 else
 	rel.verticalDiffusion = 0;
 	if strcmpi(rel.verticalMode,'sigmaLevel')
@@ -50,6 +59,7 @@ else
 			rel.verticalLevel = min(max(rel.sigma0,-1),0);
 		end
 		rel.z0 = [];
+		rel.horizShearDiffusion = 0;
 	elseif strcmpi(rel.verticalMode,'zLevel')
 		if ~isempty(rel.verticalLevel)
 			rel.z0 = rel.verticalLevel;
@@ -57,6 +67,7 @@ else
 			rel.verticalLevel = rel.z0;
 		end
 		rel.sigma0 = [];
+		rel.horizShearDiffusion = 0;
 	elseif strcmpi(rel.verticalMode,'zAverage')
 		rel.verticalLevel = sort(rel.verticalLevel);
 		rel.z0 = mean(rel.verticalLevel);
