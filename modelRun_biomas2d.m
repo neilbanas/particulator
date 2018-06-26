@@ -26,7 +26,7 @@ classdef modelRun_biomas2d < modelRun
 		function run = modelRun_biomas2d(dirname,year,griddir,depthRange);
 			run.year = year;
 			run.numFrames = 365;
-			run.t = datenum(2009,0,0) + (1:365);
+			run.t = datenum(year,0,0) + (1:365);
 			
 			run.dirname = dirname;
 			run.basename = ['_600_300.H' num2str(run.year)];
