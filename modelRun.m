@@ -46,9 +46,12 @@ classdef modelRun < handle
 		function vs = scaleV(run,v,x,y); % native units -> deg lat/day
 		end
 		function ws = scaleW(run,w); % native units -> m/day
+			ws = w;
 		end
 		
 		function [x1,y1,active] = filterCoordinates(run,x,y);
+			x1 = x;
+			y1 = y;
 		end		
 	end
 
