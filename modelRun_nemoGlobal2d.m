@@ -277,10 +277,10 @@ classdef modelRun_nemoGlobal2d < modelRun
 			% each (x,y) 
 			[I,J] = size(run.grid.x);
 			ii0 = min(I-1, max(1, floor(ii)));
-			a = ii - ii0;
+			a = repmat(ii - ii0, [1 K]);
 			ii0 = repmat(ii0(:), [1 K]);
 			jj0 = min(J-1, max(1, floor(jj)));
-			b = jj - jj0;
+			b = repmat(jj - jj0, [1 K]);
 			jj0 = repmat(jj0(:), [1 K]);
 			kk = repmat((1:K), [length(x) 1]);
 			ind00 = sub2ind([I J K], ii0,   jj0,   kk);
