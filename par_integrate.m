@@ -212,6 +212,27 @@ else
 	s.wdiff = 0;
 end
 
+if rel.horizIsotropicDiffusivity > 0
+	dt_secs = dt .* 86400;
+	udiffscale = sqrt(2.*rel.horizIsotropicDiffusivity./dt_secs); 
+	s.u = s.u + udiffscale .* randn(size(s.u));
+	s.v = s.v + udiffscale .* randn(size(s.u));
+	s.uScaled = run.scaleU(s.u, s.x, s.y);
+	s.vScaled = run.scaleV(s.v, s.x, s.y);
+end
+
+if rel.horizShearDiffusion
+	% assume verticalMode = zAverage 
+	ualong = sqrt(s.u.^2 + s.v.^2);
+	rx = s.u./ualong; % unit vector in the along-flow direction is
+	ry = s.v./ualong; % rx xhat + ry yhat
+	ualongdiff = ualong ./ sqrt(3) .* randn(size(s.u));
+	s.u = s.u + ualongdiff .* rx;
+	s.v = s.v + ualongdiff .* ry;
+	s.uScaled = run.scaleU(s.u, s.x, s.y);
+	s.vScaled = run.scaleV(s.v, s.x, s.y);	
+end
+
 
 
 % ------------------------------------------------------------------------------
