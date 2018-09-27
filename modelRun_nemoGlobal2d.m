@@ -8,7 +8,7 @@ classdef modelRun_nemoGlobal2d < modelRun
 	% vertical advection or diffusion.	
 
 	properties
-		maskFile, gridFile, filenameTemplate
+		maskFile, gridFile, filenames, filedir;
 		
 		region					% row and column bounds of the subset of the
 								% grid to use. These aren't indices into the
@@ -38,14 +38,19 @@ classdef modelRun_nemoGlobal2d < modelRun
 	
 	methods
 	
-		function run = modelRun_nemoGlobal2d(basedir,depthRange,region);
-			run.maskFile = [basedir 'grid/mask3D_30N.mat'];
-			run.gridFile = [basedir 'grid/mesh_hgr_withholes_AXY.nc'];
-			run.filenameTemplate = [basedir 'ORCA0083-N06_2009y01[var]_AXY.nc'];
+		function run = modelRun_nemoGlobal2d(filenameTemplate,depthRange, ...
+											 region, griddir);
+			if nargin < 4 || isempty(griddir)
+				griddir = '/Users/neil/Dropbox/particulator/data/nemo-global/';
+			end
+			run.maskFile = [griddir 'mask3D_30N.mat'];
+			run.gridFile = [griddir 'mesh_hgr_withholes_AXY.nc'];
+			% filenameTemplate is something like
+			% .../nemo-global/2009/banas_ORCA0083-N06_[date]d05[var].nc
 
-			run.oneFrameOverAndOver = 1;
+			run.oneFrameOverAndOver = 0;
 			
-			if nargin < 3
+			if nargin < 3 || isempty(region)
 				region = [1 3522 1 1189]; % matlab indices (1-based),
 										  % not netcdf indices!
 			end
@@ -79,10 +84,31 @@ classdef modelRun_nemoGlobal2d < modelRun
 			run.vars.local = tab(:,1);
 			run.vars.ncfile = tab(:,2);
 			run.vars.ncname = tab(:,3);
-
+			
+			% assemble lists of filenames for the *U.nc, *V.nc, etc files.
+			% in the 2009 dataset we're starting with, the dates on the *P.nc
+			% files are off by one day from the others--the difference in
+			% timebase is ignored. But this issue is why we're assembling
+			% full lists of filenames for each variable rather than assuming
+			% they follow a template.
+			i_dateBit = strfind(filenameTemplate,'[date]');
+			i_middleBit = i_dateBit + 6;
+			i_varBit = strfind(filenameTemplate,'[var]');
+			i_endBit = i_varBit+5;
+			i_dirs = strfind(filenameTemplate,'/');
+			run.filedir = filenameTemplate(1:i_dirs(end));
+			firstBit = filenameTemplate(1:i_dateBit-1);
+			middleBit = filenameTemplate(i_middleBit:i_varBit-1);
+			endBit = filenameTemplate(i_endBit:end);
+			theVars = unique(run.vars.ncfile);
+			for i=1:length(theVars)
+				theFiles = dir([firstBit '*' middleBit theVars{i} endBit]);
+				run.filenames.(theVars{i}) = {theFiles(:).name};
+			end
+			
 			% read tracer grid + timebase
-			ncname = strrep(run.filenameTemplate,'[var]','T');
-			nc = netcdf.open(ncname,'NOWRITE');
+			ncname = [run.filedir run.filenames.T{1}];
+			nc = netcdf.open(ncname,'NOWRITE'); % first tracer file
 			run.box.start = [run.region(1) run.region(3)] - [1 1];
 			run.box.count = [run.region(2) run.region(4)] - run.box.start;
 			grid.x = netcdf.getVar(nc,netcdf.inqVarID(nc,'nav_lon'),...
@@ -93,14 +119,18 @@ classdef modelRun_nemoGlobal2d < modelRun
 			grid.z = - netcdf.getVar(nc,netcdf.inqVarID(nc,'deptht'),'double');			
 			t = netcdf.getVar(nc,netcdf.inqVarID(nc,'time_counter'),'double');
 			run.t = t./86400 + datenum('1/1/1950');
+			netcdf.close(nc);	
 			if run.oneFrameOverAndOver
 				run.t = run.t + (0 : 5 : 365); % just pretend
 				run.numFrames = length(run.t);
+			else
+				dt = str2num(middleBit(2:end)); % interval between files
+				run.t = run.t + dt .* (0:length(run.filenames.T)-1);
+				run.numFrames = length(run.t);
 			end
-			netcdf.close(nc);	
 			% read w grid		
-			ncname = strrep(run.filenameTemplate,'[var]','W');
-			nc = netcdf.open(ncname,'NOWRITE');
+			ncname = [run.filedir run.filenames.W{1}];
+			nc = netcdf.open(ncname,'NOWRITE'); % first w file
 			grid.zw = - netcdf.getVar(nc,netcdf.inqVarID(nc,'depthw'),'double');			
 			netcdf.close(nc);
 			[I,J] = size(grid.x); % these match run.region
@@ -160,17 +190,17 @@ classdef modelRun_nemoGlobal2d < modelRun
 			vi = strmatch(localVarname,run.vars.local,'exact');
 			if ~isempty(vi) 
 				ncfile = run.vars.ncfile{vi};
-				ncname = strrep(run.filenameTemplate,'[var]',ncfile);
+				ncname = [run.filedir run.filenames.(ncfile){n}];
 				nc = netcdf.open(ncname,'NOWRITE');
-%				disp(['reading ' run.vars.ncname{vi} ' from ' ncname]);
+				disp(['reading ' run.vars.ncname{vi} ' from ' ncname]);
 				varid = netcdf.inqVarID(nc,run.vars.ncname{vi});
 				[~,~,dimids,~] = netcdf.inqVar(nc,varid);
 				if length(dimids)==4 % 3D x time
 					K = length(run.grid.z);
-					c = netcdf.getVar(nc,varid, [run.box.start 0 n-1], ...
+					c = netcdf.getVar(nc,varid, [run.box.start 0 0], ...
 									[run.box.count K 1], 'double');
 				else % 2D x time
-					c = netcdf.getVar(nc,varid, [run.box.start n-1], ...
+					c = netcdf.getVar(nc,varid, [run.box.start 0], ...
 									[run.box.count 1], 'double');
 				end
 			else
@@ -215,8 +245,10 @@ classdef modelRun_nemoGlobal2d < modelRun
 						% issue needs to be dealt with better)
 					end
 					% now make the scatteredInterpolant
+					warning off
 					run.F1.si.(fields{i}) = scatteredInterpolant( ...
 						run.grid.x(:), run.grid.y(:), C(:));
+					warning on
 				end
 			end	
 		end
