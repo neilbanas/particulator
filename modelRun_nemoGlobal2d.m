@@ -17,6 +17,8 @@ classdef modelRun_nemoGlobal2d < modelRun
 								% to Neil in Jan 2018: north of 30N only, and
 								% with a chunk of Eurasian land omitted
 								
+		bounds					% outer edge of the subsetted grid
+								
 		oneFrameOverAndOver		% flag making it possible to use the
 								% annual average Andy sent as a test file
 								% as if it were a full model run
@@ -151,6 +153,16 @@ classdef modelRun_nemoGlobal2d < modelRun
 			% otherwise saved		
 					
 			run.grid = grid;
+			
+			% define outer bounds of the grid
+			run.bounds.x = cat(1, run.grid.x(1,:)', ...
+								  run.grid.x(:,end), ...
+								  run.grid.x(end,end:-1:1)', ...
+								  run.grid.x(end:-1:1,end));
+			run.bounds.y = cat(1, run.grid.y(1,:)', ...
+								  run.grid.y(:,end), ...
+								  run.grid.y(end,end:-1:1)', ...
+								  run.grid.y(end:-1:1,end));
 			
 			% make scatteredInterpolants for variables that don't change
 			warning off
@@ -354,7 +366,7 @@ classdef modelRun_nemoGlobal2d < modelRun
 		end
 		
 		function [x1,y1,active] = filterCoordinates(run,x,y);
-			active = y > 30; % model fields end at 30N
+			active = inpolygon(x,y,run.bounds.x,run.bounds.y);
 			y1 = y;
 			x1 = x;
 			% deal with the case where a point goes over the pole (y>90).
@@ -362,7 +374,12 @@ classdef modelRun_nemoGlobal2d < modelRun
 			y1(f) = 180 - y1(f);
 			x1(f) = x1(f) + 180;
 			% confine x coordinates to 0...360
-			x1 = mod(x1,360);
+			% x1 = mod(x1,360);
+			% confine x coordinates to -210...150. This places the discontinuity
+			% in a place that's mostly harmless to our current projects; there's
+			% nothing else special about it
+			x1(x1>150) = x1(x1>150) - 360;
+			x1(x1<-210) = x1(x1<-210) + 360;
 		end		
 
 
