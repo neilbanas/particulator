@@ -9,7 +9,10 @@ classdef modelRun_sinmod2d < modelRun
 	% curvilinear, z-level models.
 
 	properties
-		filename
+		filenames				% files that contain the model run
+		 
+		fileind, filetimeind    % which file, and which time index in that file,
+								% to look for each timestep in
 		
 		F0, F1					% two frames of in-memory storage
 
@@ -25,23 +28,48 @@ classdef modelRun_sinmod2d < modelRun
 	
 	methods
 	
-		function run = modelRun_sinmod2d(filename,depthRange);
+		function run = modelRun_sinmod2d(thepath,filenameTemplate,depthRange);
 			%internal name, name inside nc file
 			tab = {...
-				'u',	'v_north'; ...	% note that u,v are switched!
-				'v',	'u_east'; ...
-				'Ks',	'????'; ...
+				'u',	'u_east'; ...
+				'v',	'v_north'; ...
+				'Ks',	'ocean_vertical_diffusivity'; ... % m^2/s
 				'temp',	'temperature'; ...
 				'salt',	'salinity'; ...
 				'ice',	'ice_compactness'; ...	% fractional ice cover
-				'iceh',	'ice_thickness'};	 	% ice thickness
+				'iceh',	'ice_thickness'; ...	% ice thickness
+				'uwind', 'w_east'; ...			% eastward wind speed (m/s)
+				'vwind', 'w_north'};	 		% northward wind speed
 			run.vars.local = tab(:,1);
 			run.vars.ncname = tab(:,2);
 
-			run.filename = filename;			
-			nc = netcdf.open(filename,'NOWRITE');
-			
+			% assemble file list
+			d = dir([thepath filenameTemplate]);
+			filenames = {d.name};
+			% read timebase from each file
+			t = [];
+			fileind = [];
+			filetimeind = [];
+			for i=1:length(filenames)
+				run.filenames{i} = [thepath filenames{i}];
+				nc = netcdf.open(run.filenames{i},'NOWRITE');
+				ti = netcdf.getVar(nc,netcdf.inqVarID(nc,'time'),'double');
+				units = netcdf.getAtt(nc,netcdf.inqVarID(nc,'time'),'units');
+				netcdf.close(nc);
+				timeref = strrep(units, 'days since ', '');
+				timeref = datenum(timeref,'yyyy-mm-dd HH:MM:SS');
+				ti = ti + timeref;
+				t = cat(1,t,ti);
+				fileind = cat(1,fileind,repmat(i,[length(ti) 1]));
+				filetimeind = cat(1,filetimeind,(1:length(ti))');
+			end
+			% sort the timebase segments into a single sequence
+			[run.t,isort] = sort(t);
+			run.fileind = fileind(isort);
+			run.filetimeind = filetimeind(isort);
+							
 			% read grid
+			nc = netcdf.open(run.filenames{1},'NOWRITE');
 			grid.x = netcdf.getVar(nc,netcdf.inqVarID(nc,'gridLons'),'double');
 			grid.y = netcdf.getVar(nc,netcdf.inqVarID(nc,'gridLats'),'double');
 			grid.zw = - netcdf.getVar(nc,netcdf.inqVarID(nc,'zc'),'double');
@@ -51,6 +79,8 @@ classdef modelRun_sinmod2d < modelRun
 			grid.H = netcdf.getVar(nc,netcdf.inqVarID(nc,'depth'),'double');
 			grid.mask = double(grid.H < 1e10);
 			grid.H(grid.mask==0) = 0;
+			netcdf.close(nc);
+
 			[I,J] = size(grid.x); % I, J match the dimensions called xc, yc
 								  % inside the netcdf file
 			K = length(grid.z);
@@ -59,15 +89,6 @@ classdef modelRun_sinmod2d < modelRun
 			H3 = repmat(grid.H,[1 1 K]);
 			mask3 = z3 > -H3;
 			
-			% read timebase
-			t = netcdf.getVar(nc,netcdf.inqVarID(nc,'time'),'double');
-			units = netcdf.getAtt(nc,netcdf.inqVarID(nc,'time'),'units');
-%			timeref = strrep(units, 'seconds since ', '');
-%			timeref = datenum(timeref,'yyyy-mm-dd HH:MM:SS');
-%			run.t = linspace(t0,t1,run.numFrames) ./ 86400 + timeref;
-			run.t = t - datenum(2006,4,1);
-			netcdf.close(nc);
-
 			run.grid = grid;
 			
 			% make scatteredInterpolants for variables that don't change
@@ -105,32 +126,40 @@ classdef modelRun_sinmod2d < modelRun
 		function c = read(run,localVarname,n);
 			[I,J] = size(run.grid.x);
 			vi = strmatch(localVarname,run.vars.local,'exact');
-			if ~isempty(vi) 
-				nc = netcdf.open(run.filename,'NOWRITE');
-				varid = netcdf.inqVarID(nc,run.vars.ncname{vi});
-				[~,~,dimids,~] = netcdf.inqVar(nc,varid);
-				if length(dimids)==4 % 3D x time
-					K = length(run.grid.z);
-					c = netcdf.getVar(nc,varid,[0 0 0 n-1],[I J K 1],'double');
-				else % 2D x time
-					c = netcdf.getVar(nc,varid,[0 0 n-1],[I J 1],'double');
-				end
-			else
-				warning(['don''t know what file contains ' localVarname '.']);
+			if isempty(vi)
 				c = [];
+				warning(['don''t know what file contains ' localVarname '.']);
+				return;
 			end
+			thefile = run.filenames{run.fileind(n)};
+			ind = run.filetimeind(n);
+			disp(['reading ' run.vars.ncname{vi} ' from ' thefile ...
+			      ' at step ' num2str(ind) '-1']);
+			nc = netcdf.open(thefile,'NOWRITE');
+			varid = netcdf.inqVarID(nc,run.vars.ncname{vi});
+			[~,~,dimids,~] = netcdf.inqVar(nc,varid);
+			if length(dimids)==4 % 3D x time
+				K = length(run.grid.z);
+				c = netcdf.getVar(nc,varid,[0 0 0 ind-1],[I J K 1],'double');
+			else % 2D x time
+				c = netcdf.getVar(nc,varid,[0 0 ind-1],[I J 1],'double');
+			end
+			scale = netcdf.getAtt(nc,varid,'scale_factor');
+			offset = netcdf.getAtt(nc,varid,'add_offset');
 			netcdf.close(nc);
+			c = double(c).*double(scale)+double(offset);
 			c(c>1e16) = nan;
 		end
 		
 		
 		function run = loadFrame(run,n,tracers);
+			if nargin<3, tracers = {}; end
 			run.loadedN(2) = n;
 			% load U, V
 			run.F1.u = run.read('u',n);
 			run.F1.v = run.read('v',n);
 			% load Ks
-%			run.F1.Ks = run.read('Ks',n);
+			run.F1.Ks = run.read('Ks',n);
 			run.F1.Ks = zeros(size(run.F1.u));
 			% load tracers
 			for m=1:length(tracers)
@@ -199,7 +228,7 @@ classdef modelRun_sinmod2d < modelRun
 		
 		
 		function v_axis = verticalAxisForProfiles(run);
-			v_axis = run.grid.z; % maybe not correct for vertical diffusivity
+			v_axis = run.grid.z;
 		end
 		
 		function c = interpProfile(run,name,x,y,t);
@@ -270,9 +299,15 @@ classdef modelRun_sinmod2d < modelRun
 			f = find(y1>90);
 			y1(f) = 180 - y1(f);
 			x1(f) = x1(f) + 180;
-			% confine x coordinates to 0...360
-			x1 = mod(x1,360);
-		end		
+			% put longitude into the standard range -210 .. 150, so that the
+			% break falls within a part of the Russian Arctic where none of
+			% our current projects are located.
+			breakpoint = -210;
+			f = x1 < breakpoint;
+			x1(f) = x1(f) + 360;
+			f = x1 >= breakpoint+360;
+			x1(f) = x1(f) - 360;
+		end
 
 
 		function ci = tinterp(run,ti,c0,c1);
