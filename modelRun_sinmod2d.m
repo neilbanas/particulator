@@ -67,6 +67,7 @@ classdef modelRun_sinmod2d < modelRun
 			[run.t,isort] = sort(t);
 			run.fileind = fileind(isort);
 			run.filetimeind = filetimeind(isort);
+			run.numFrames = length(t);
 							
 			% read grid
 			nc = netcdf.open(run.filenames{1},'NOWRITE');
@@ -133,8 +134,8 @@ classdef modelRun_sinmod2d < modelRun
 			end
 			thefile = run.filenames{run.fileind(n)};
 			ind = run.filetimeind(n);
-			disp(['reading ' run.vars.ncname{vi} ' from ' thefile ...
-			      ' at step ' num2str(ind) '-1']);
+%			disp(['reading ' run.vars.ncname{vi} ' from ' thefile ...
+%			      ' at step ' num2str(ind) '-1']);
 			nc = netcdf.open(thefile,'NOWRITE');
 			varid = netcdf.inqVarID(nc,run.vars.ncname{vi});
 			[~,~,dimids,~] = netcdf.inqVar(nc,varid);
@@ -299,10 +300,9 @@ classdef modelRun_sinmod2d < modelRun
 			f = find(y1>90);
 			y1(f) = 180 - y1(f);
 			x1(f) = x1(f) + 180;
-			% put longitude into the standard range -210 .. 150, so that the
-			% break falls within a part of the Russian Arctic where none of
-			% our current projects are located.
-			breakpoint = -210;
+			% put longitude into the range -180 .. 180. (When this was set to
+			% -210, got interpolation errors between -210 and -180)
+			breakpoint = -180;
 			f = x1 < breakpoint;
 			x1(f) = x1(f) + 360;
 			f = x1 >= breakpoint+360;
