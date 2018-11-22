@@ -65,6 +65,8 @@ classdef modelRun_nemoGlobal2d < modelRun
 				run.region = [600 1200 300 1000];
 			elseif strcmpi(region,'atl-arctic')
 				run.region = [1900 3350 300 1189]; 
+			elseif strcmpi(region,'barents')
+				run.region = [2800 3350 700 1189]; 
 			else
 				run.region = region;
 			end
@@ -115,7 +117,7 @@ classdef modelRun_nemoGlobal2d < modelRun
 			run.box.count = [run.region(2) run.region(4)] - run.box.start;
 			grid.x = netcdf.getVar(nc,netcdf.inqVarID(nc,'nav_lon'),...
 				run.box.start, run.box.count, 'double');
-			grid.x = mod(grid.x, 360); % switch from -180..180 to 0..360
+			grid.x = run.cleanLon(grid.x);
 			grid.y = netcdf.getVar(nc,netcdf.inqVarID(nc,'nav_lat'),...
 				run.box.start, run.box.count, 'double');
 			grid.z = - netcdf.getVar(nc,netcdf.inqVarID(nc,'deptht'),'double');			
@@ -366,20 +368,25 @@ classdef modelRun_nemoGlobal2d < modelRun
 		end
 		
 		function [x1,y1,active] = filterCoordinates(run,x,y);
-			active = inpolygon(x,y,run.bounds.x,run.bounds.y);
 			y1 = y;
-			x1 = x;
+			x1 = run.cleanLon(x);
 			% deal with the case where a point goes over the pole (y>90).
 			f = find(y1>90);
 			y1(f) = 180 - y1(f);
 			x1(f) = x1(f) + 180;
+			% now check if the particle is in bounds. This isn't really working
+			active = inpolygon(x1,y1,run.bounds.x,run.bounds.y);
+		end
+		
+		function x1 = cleanLon(run,x);
 			% confine x coordinates to 0...360
 			% x1 = mod(x1,360);
 			% confine x coordinates to -210...150. This places the discontinuity
 			% in a place that's mostly harmless to our current projects; there's
 			% nothing else special about it
+			x1 = x;
 			x1(x1>150) = x1(x1>150) - 360;
-			x1(x1<-210) = x1(x1<-210) + 360;
+			x1(x1<-210) = x1(x1<-210) + 360;		
 		end		
 
 
