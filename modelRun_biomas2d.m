@@ -194,6 +194,16 @@ classdef modelRun_biomas2d < modelRun
 		end
 		
 		
+		function C = read(run,localVar,n);
+			j = find(strcmp(localVar,run.localVars));
+			if ~isempty(j) && run.tracerDims(j)==2
+				C = run.read2D(localVar,n);
+			else
+				C = run.read3D(localVar,n);
+			end	
+		end
+		
+		
 		function C = read3D(run,localVar,n);
 			[I,J] = size(run.grid.x);
 			K = length(run.grid.dz);
@@ -233,12 +243,7 @@ classdef modelRun_biomas2d < modelRun
 									        % not the w grid
 			% everything else
 			for i=1:length(tracers)
-				j = find(strcmp(tracers{i},run.localVars));
-				if ~isempty(j) && run.tracerDims(j)==2
-					run.F1.(tracers{i}) = run.read2D(tracers{i},n);
-				else
-					run.F1.(tracers{i}) = run.read3D(tracers{i},n);
-				end
+				run.F1.(tracers{i}) = run.read(tracers{i},n);
 			end
 
 			% create scatteredInterpolant objects for depth averages of
