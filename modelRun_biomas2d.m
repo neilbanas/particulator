@@ -31,12 +31,12 @@ classdef modelRun_biomas2d < modelRun
 			run.dirname = dirname;
 			run.basename = ['_600_300.H' num2str(run.year)];
 			run.localVars = ...
-				{'uv', 'w', 'Ks', 'temp', 'ice', 'iceh', 'swrad', 'snow'};
+				{'uv', 'w', 'Ks', 'temp', 'ice', 'iceh', 'swrad', 'snow','algae'};
 			run.fileVars = ...
 				{'uo', 'woday','vdcday','to','aiday', ...
-				 'hiday','osswday','snowday'};
+				 'hiday','osswday','snowday','algae'};
 			run.tracerDims = ...
-				[ 3     3     3      3      2     2    2   2]; % 2D or 3D
+				[ 3     3     3      3      2     2    2   2   2]; % 2D or 3D
 				% physical variables have been renamed according to a personal,
 				% ROMS-ish convention.
 				%	ice = fractional ice cover
@@ -190,6 +190,7 @@ classdef modelRun_biomas2d < modelRun
 				prefix = localVar;
 			end
 			
+%			disp([run.dirname prefix run.basename]);
 			fid = fopen([run.dirname prefix run.basename]);
 		end
 		
