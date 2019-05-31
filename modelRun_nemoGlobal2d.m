@@ -160,11 +160,11 @@ classdef modelRun_nemoGlobal2d < modelRun
 			run.bounds.x = cat(1, run.grid.x(1,:)', ...
 								  run.grid.x(:,end), ...
 								  run.grid.x(end,end:-1:1)', ...
-								  run.grid.x(end:-1:1,end));
+								  run.grid.x(end:-1:1,1));
 			run.bounds.y = cat(1, run.grid.y(1,:)', ...
 								  run.grid.y(:,end), ...
 								  run.grid.y(end,end:-1:1)', ...
-								  run.grid.y(end:-1:1,end));
+								  run.grid.y(end:-1:1,1));
 			
 			% make scatteredInterpolants for variables that don't change
 			warning off
@@ -178,23 +178,29 @@ classdef modelRun_nemoGlobal2d < modelRun
 				% j is a column index and latitude-like 
 			warning on		
 			
-			% setup for depth averaging
+			run.depthAveragingSetup(depthRange, dz3, mask3);
+			
+		end % constructor
+		
+		
+		function depthAveragingSetup(run,depthRange,dz3,mask3);
 			if length(depthRange)==1
 				depthRange = depthRange.*[1 1];
 			end
-			k = find(abs(grid.zw-depthRange(1)) == ...
-					 min(abs(grid.zw-depthRange(1))));
-			k2 = find(abs(grid.zw-depthRange(2)) == ...
-					 min(abs(grid.zw-depthRange(2))));
+			k = find(abs(run.grid.zw-depthRange(1)) == ...
+					 min(abs(run.grid.zw-depthRange(1))));
+			k2 = find(abs(run.grid.zw-depthRange(2)) == ...
+					 min(abs(run.grid.zw-depthRange(2))));
 			run.avg.kRange = sort([k(1) k2(1)]);
 			kk = run.avg.kRange(1) : run.avg.kRange(2);
+			[I,J] = size(run.grid.x);
+			K = length(run.grid.z);
 			run.avg.mask = zeros(I,J,K);
 			run.avg.mask(:,:,kk) = mask3(:,:,kk);
 			run.avg.dz = dz3;
 			run.avg.dz(run.avg.mask==0) = 0;
 			run.avg.h = sum(run.avg.dz,3);
-
-		end % constructor
+		end	
 		
 		
 		% reading from model files ---------------------------------------------
