@@ -21,9 +21,9 @@ classdef modelRun_nemoAMM7 < modelRun_cartesianSigma
 	
 	methods
 	
-		function run = modelRun_nemoAMM7(basedir);
-			run.filenameTemplate = ...
-				[basedir 'amm7_1d_19810101_19810131_grid_[var].nc'];
+		function run = modelRun_nemoAMM7(basedir,basename);
+			run.filenameTemplate = [basedir basename '_grid_[var].nc']
+			% basename is like 'amm7_1d_19810101_19810131'
 
 			%internal name, nc file, name inside nc file
 			tab = {...
@@ -39,21 +39,26 @@ classdef modelRun_nemoAMM7 < modelRun_cartesianSigma
 			% read u grid and timebase	
 			ncname = strrep(run.filenameTemplate,'[var]','U');
 			nc = netcdf.open(ncname,'NOWRITE');
-			grid.lonu = ...
-				netcdf.getVar(nc,netcdf.inqVarID(nc,'nav_lon'),'double');			
-			grid.latu = ...
-				netcdf.getVar(nc,netcdf.inqVarID(nc,'nav_lat'),'double');
-			t = netcdf.getVar(nc,netcdf.inqVarID(nc,'time_centered'),'double');
+			lon1 = netcdf.getVar(nc,netcdf.inqVarID(nc,'x_grid_U'),'double');			
+			lat1 = netcdf.getVar(nc,netcdf.inqVarID(nc,'y_grid_U'),'double');
+			[grid.latu,grid.lonu] = meshgrid(lat1,lon1);
+			t = netcdf.getVar(nc,netcdf.inqVarID(nc,'time_counter'),'double');
 			run.t = t./86400 + datenum(1950,1,1);
 			run.numFrames = length(run.t);
 			netcdf.close(nc);
 			% read v grid	
 			ncname = strrep(run.filenameTemplate,'[var]','V');
 			nc = netcdf.open(ncname,'NOWRITE');
-			grid.lonv = ...
-				netcdf.getVar(nc,netcdf.inqVarID(nc,'nav_lon'),'double');			
-			grid.latv = ...
-				netcdf.getVar(nc,netcdf.inqVarID(nc,'nav_lat'),'double');
+			lon1 = netcdf.getVar(nc,netcdf.inqVarID(nc,'x_grid_V'),'double');			
+			lat1 = netcdf.getVar(nc,netcdf.inqVarID(nc,'y_grid_V'),'double');
+			[grid.latv,grid.lonv] = meshgrid(lat1,lon1);
+			netcdf.close(nc);
+			% read tracer grid
+			ncname = strrep(run.filenameTemplate,'[var]','T');
+			nc = netcdf.open(ncname,'NOWRITE');
+			lon1 = netcdf.getVar(nc,netcdf.inqVarID(nc,'x_grid_T'),'double');			
+			lat1 = netcdf.getVar(nc,netcdf.inqVarID(nc,'y_grid_T'),'double');
+			[grid.lat,grid.lon] = meshgrid(lat1,lon1);
 			netcdf.close(nc);
 			% read layer depths
 			nc = netcdf.open([basedir 'mesh_zgr_e3.nc'],'NOWRITE');
@@ -62,6 +67,7 @@ classdef modelRun_nemoAMM7 < modelRun_cartesianSigma
 			netcdf.close(nc);
 			grid.Hu = sum(e3u,3); % total water depth
 			grid.Hv = sum(e3v,3);
+			grid.H = interp2(grid.latu,grid.lonu,grid.Hu,grid.lat,grid.lon);
 			dcs = squeeze(e3u(2,2,:)./grid.Hu(2,2));
 			grid.csw = [0; -cumsum(dcs)];
 				% this is what would be, in ROMS, the vertical coordinates
@@ -77,11 +83,6 @@ classdef modelRun_nemoAMM7 < modelRun_cartesianSigma
 				% surface and bottom so that we can interpolate to all valid 
 				% sigma values
 
-			% so far don't have a tracer file to work from, so taking a guess at
-			% how the grid staggering works...
-			grid.lon = grid.lonv;
-			grid.lat = grid.latu;
-			grid.H = interp2(grid.latu,grid.lonu,grid.Hu,grid.lat,grid.lon);
 
 			grid.bounds = [grid.lonu([1 end],1); grid.latv(1,[1 end])'];
 			
