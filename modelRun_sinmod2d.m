@@ -33,13 +33,16 @@ classdef modelRun_sinmod2d < modelRun
 			tab = {...
 				'u',	'u_east'; ...
 				'v',	'v_north'; ...
-				'Ks',	'ocean_vertical_diffusivity'; ... % m^2/s
+				'Ks',	'vertical_diffusivity'; ... % m^2/s
 				'temp',	'temperature'; ...
 				'salt',	'salinity'; ...
 				'ice',	'ice_compactness'; ...	% fractional ice cover
 				'iceh',	'ice_thickness'; ...	% ice thickness
 				'uwind', 'w_east'; ...			% eastward wind speed (m/s)
-				'vwind', 'w_north'};	 		% northward wind speed
+				'vwind', 'w_north'; ...			% northward wind speed
+				'flagel','PhytoF'; ...	 		% small phytos
+				'diatom','PhytoD'; ...			% large phytos
+				'NO3',   'NO3'};				% nitrate
 			run.vars.local = tab(:,1);
 			run.vars.ncname = tab(:,2);
 
@@ -52,6 +55,7 @@ classdef modelRun_sinmod2d < modelRun
 			filetimeind = [];
 			for i=1:length(filenames)
 				run.filenames{i} = [thepath filenames{i}];
+%				disp(run.filenames{i});
 				nc = netcdf.open(run.filenames{i},'NOWRITE');
 				ti = netcdf.getVar(nc,netcdf.inqVarID(nc,'time'),'double');
 				units = netcdf.getAtt(nc,netcdf.inqVarID(nc,'time'),'units');
@@ -70,7 +74,12 @@ classdef modelRun_sinmod2d < modelRun
 			run.numFrames = length(t);
 							
 			% read grid
-			nc = netcdf.open(run.filenames{1},'NOWRITE');
+			try
+				nc = netcdf.open(run.filenames{1},'NOWRITE');
+			catch
+				run.filenames
+				error('Error loading run.filenames{1} (see above).');
+			end
 			grid.x = netcdf.getVar(nc,netcdf.inqVarID(nc,'gridLons'),'double');
 			grid.y = netcdf.getVar(nc,netcdf.inqVarID(nc,'gridLats'),'double');
 			grid.zw = - netcdf.getVar(nc,netcdf.inqVarID(nc,'zc'),'double');
@@ -145,8 +154,13 @@ classdef modelRun_sinmod2d < modelRun
 			else % 2D x time
 				c = netcdf.getVar(nc,varid,[0 0 ind-1],[I J 1],'double');
 			end
-			scale = netcdf.getAtt(nc,varid,'scale_factor');
-			offset = netcdf.getAtt(nc,varid,'add_offset');
+			try
+				scale = netcdf.getAtt(nc,varid,'scale_factor');
+				offset = netcdf.getAtt(nc,varid,'add_offset');
+			catch
+				scale = 1;
+				offset = 0;
+			end
 			netcdf.close(nc);
 			c = double(c).*double(scale)+double(offset);
 			c(c>1e16) = nan;

@@ -31,10 +31,11 @@ classdef modelRun_biomas2d < modelRun
 			run.dirname = dirname;
 			run.basename = ['_600_300.H' num2str(run.year)];
 			run.localVars = ...
-				{'uv', 'w', 'Ks', 'temp', 'ice', 'iceh', 'swrad', 'snow','algae'};
+				{'uv', 'w', 'Ks', 'temp',...
+				 'ice', 'iceh', 'swrad', 'snow', 'algae'};
 			run.fileVars = ...
-				{'uo', 'woday','vdcday','to','aiday', ...
-				 'hiday','osswday','snowday','algae'};
+				{'uo','woday','vdcday','to',...
+				 'aiday','hiday','osswday','snowday','algae'};
 			run.tracerDims = ...
 				[ 3     3     3      3      2     2    2   2   2]; % 2D or 3D
 				% physical variables have been renamed according to a personal,
@@ -42,6 +43,8 @@ classdef modelRun_biomas2d < modelRun
 				%	ice = fractional ice cover
 				%	iceh = ice thickness
 				% 	swrad = shortwave radiation, of which PAR is 0.43
+				%   algae = ice algae in bottom 2 cm; multiply by 0.02 to get
+				%           biomass in mmolN/m2
 				% any var not in this list (like all the bio vars) is presumed
 				% to be in a file with the same prefix as the var name--and also
 				% presumed to be 3D.
