@@ -10,9 +10,9 @@ classdef modelRun_biomas2d < modelRun
 		griddir = 'data/biomas/';
 		dirname, basename
 		
-		localVars, fileVars		% lookup table for associating filenames with
-								% standard variable names
-		tracerDims				% are the named variables 2D or 3D
+        tab                     % look-up table for associating filenames
+                                % with standard variable names, and variable
+                                % dimensionality
 		
 		avg, avgu				% setup for depth-averaging
 		pad						% setup for padding grid with strips at x=0,360
@@ -23,21 +23,33 @@ classdef modelRun_biomas2d < modelRun
 	
 	methods
 	
-		function run = modelRun_biomas2d(dirname,year,griddir,depthRange);
+		function run = modelRun_biomas2d(dirname,year,griddir,depthRange)
 			run.year = year;
 			run.numFrames = 365;
 			run.t = datenum(year,0,0) + (1:365);
 			
 			run.dirname = dirname;
 			run.basename = ['_600_300.H' num2str(run.year)];
-			run.localVars = ...
-				{'uv', 'w', 'Ks', 'temp',...
-				 'ice', 'iceh', 'swrad', 'snow', 'algae'};
-			run.fileVars = ...
-				{'uo','woday','vdcday','to',...
-				 'aiday','hiday','osswday','snowday','algae'};
-			run.tracerDims = ...
-				[ 3     3     3      3      2     2    2   2   2]; % 2D or 3D
+            % look-up table for variables
+            % [ standard name, name in file, dimensionality ]
+            run.tab = {'uv'   , 'uo'     , 3; ... % u velocity
+                       'w'    , 'woday'  , 3; ... % w velocity
+                       'Ks'   , 'vdcday' , 3; ... % mixing coefficient
+                       'temp' , 'to'     , 3; ... % temperature
+                       'salt' , 'so'     , 3; ... % salinity
+                       'NO3'  , 'nitrat' , 3; ... % nitrate
+                       'Si'   , 'silica' , 3; ... % silicate
+                       'PS'   , 'flagel' , 3; ... % small phytoplankton
+                       'PL'   , 'diatom' , 3; ... % large phytoplankton
+                       'ZS'   , 'zoo1'   , 3; ... % small zoooplankton
+                       'ZL'   , 'zoo2'   , 3; ... % large zoooplankton
+                       'ZP'   , 'zoo3'   , 3; ... % predatory zoooplankton
+                       'ice'  , 'aiday'  , 2; ... % ice fraction
+                       'iceh' , 'hiday'  , 2; ... % ice thickness
+                       'swrad', 'osswday', 2; ... % surface shortwave radiation
+                       'snow' , 'snowday', 2; ... % snow precipitation(?)
+                       'algae', 'algae'  , 2};    % vetically integrated algae(?)
+                       
 				% physical variables have been renamed according to a personal,
 				% ROMS-ish convention.
 				%	ice = fractional ice cover
@@ -115,7 +127,7 @@ classdef modelRun_biomas2d < modelRun
 			run.grid = grid;
 			
 			% setup for depth averaging
-			if length(depthRange)==1
+			if  length(depthRange)==1
 				depthRange = depthRange.*[1 1];
 			end
 			k = find(abs(grid.zw-depthRange(1)) == ...
@@ -151,7 +163,7 @@ classdef modelRun_biomas2d < modelRun
 			padWidth = 1; % deg longitude
 			fnear0 = find(grid.x < padWidth);
 			fnear360 = find(grid.x > 360-padWidth);
-			ffull = 1:prod(size(grid.x));
+			ffull = 1:numel(grid.x);
 			run.pad.ind = [ffull(:); fnear0(:); fnear360(:)];
 			run.pad.x = [run.grid.x(:); run.grid.x(fnear0) + 360; ...
 						 run.grid.x(fnear360) - 360];
@@ -182,13 +194,13 @@ classdef modelRun_biomas2d < modelRun
 		% reading from model files ---------------------------------------------
 		
 		
-		function fid = openFile(run,localVar);
+		function fid = openFile(run,localVar)
 			[I,J] = size(run.grid.x);
 			K = length(run.grid.dz);
 			framelength = I * J * K * 4;
 			
-			j = find(strcmp(localVar,run.localVars));
-			prefix = [run.fileVars{j}];
+			j = strcmp(localVar,run.tab(:,1));
+			prefix = [run.tab{j,2}];
 			if isempty(prefix)
 				prefix = localVar;
 			end
@@ -198,9 +210,9 @@ classdef modelRun_biomas2d < modelRun
 		end
 		
 		
-		function C = read(run,localVar,n);
-			j = find(strcmp(localVar,run.localVars));
-			if ~isempty(j) && run.tracerDims(j)==2
+		function C = read(run,localVar,n)
+            j = find(strcmp(localVar,run.tab(:,1)));
+            if ~isempty(j) && (run.tab{j,3}==2)
 				C = run.read2D(localVar,n);
 			else
 				C = run.read3D(localVar,n);
@@ -208,12 +220,12 @@ classdef modelRun_biomas2d < modelRun
 		end
 		
 		
-		function C = read3D(run,localVar,n);
+		function C = read3D(run,localVar,n)
 			[I,J] = size(run.grid.x);
 			K = length(run.grid.dz);
 			framelength = I * J * K * 4;
 				% bytes per 600x300x40 frame of one variable
-			fid = run.openFile(localVar);			
+			fid = run.openFile(localVar);
 			fseek(fid,framelength*(n-1),-1);
 			C = reshape(fread(fid,I*J*K,'real*4'),[I J K]);
 			C(~isfinite(C)) = 0; % this isn't really right for all variables
@@ -221,7 +233,7 @@ classdef modelRun_biomas2d < modelRun
 		end
 		
 		
-		function C = read2D(run,localVar,n);
+		function C = read2D(run,localVar,n)
 			[I,J] = size(run.grid.x);
 			framelength = I * J * 4;
 				% bytes per 600x300 frame of one variable
@@ -237,7 +249,7 @@ classdef modelRun_biomas2d < modelRun
 		% ([1:end 1],:), in order to make things interpolate correctly at
 		% x ~ 210 in the N Pacific.
 
-		function run = loadFrame(run,n,tracers);
+		function run = loadFrame(run,n,tracers)
 			% u and v
 			run.F1.u = run.read3D('uv',2*n-1);
 			run.F1.v = run.read3D('uv',2*n); % because the two variables
@@ -256,7 +268,7 @@ classdef modelRun_biomas2d < modelRun
 			for i=1:length(fields)
 				if isnumeric(run.F1.(fields{i}))
 					% depth-average if necessary
-					if ndims(run.F1.(fields{i})) == 2
+					if ismatrix(run.F1.(fields{i}))
 						C = run.F1.(fields{i});
 					elseif strcmpi(fields{i},'u') || strcmpi(fields{i},'v')
 						C = sum(run.F1.(fields{i}) .* run.avgu.dz, 3) ...
@@ -281,7 +293,7 @@ classdef modelRun_biomas2d < modelRun
 		end
 	
 		
-		function run = advanceTo(run,n,tracers);
+		function run = advanceTo(run,n,tracers)
 			run.F0 = run.F1;
 			run.loadedN(1) = run.loadedN(2);
 			run.loadFrame(n,tracers);
@@ -291,7 +303,7 @@ classdef modelRun_biomas2d < modelRun
 		% interpolating model variables ----------------------------------------
 		
 			
-		function c = interp(run,name,x,y,sigma,t);
+		function c = interp(run,name,x,y,sigma,t)
 			if strcmpi(name,'H')
 				c = run.si.H(x,y);
 			elseif strcmpi(name,'zeta')
@@ -310,16 +322,16 @@ classdef modelRun_biomas2d < modelRun
 		end
 		
 		
-		function c = interpDepthAverage(run,name,x,y,zMinMax,t);
+		function c = interpDepthAverage(run,name,x,y,zMinMax,t)
 			c = run.interp(name,x,y,[],t);
 		end
 		
 		
-		function v_axis = verticalAxisForProfiles(run);
+		function v_axis = verticalAxisForProfiles(run)
 			v_axis = run.grid.z; % ignoring everything on the w grid
 		end
 		
-		function c = interpProfile(run,name,x,y,t);
+		function c = interpProfile(run,name,x,y,t)
 			% find fractional indices of all the (x,y) points
 			ii = run.si.ii(x,y);
 			jj = run.si.jj(x,y);
@@ -351,17 +363,17 @@ classdef modelRun_biomas2d < modelRun
 		end
 		
 		
-		function us = scaleU(run,u,x,y); % cm/s -> deg lon per day
+		function us = scaleU(run,u,x,y) % cm/s -> deg lon per day
 			us = u ./ 100 .* 86400 ./ 111325 ./ cos(y./180.*pi);
 		end
-		function vs = scaleV(run,v,x,y); % cm/s -> deg lat per day
+		function vs = scaleV(run,v,x,y) % cm/s -> deg lat per day
 			vs = v ./ 100 .* 86400 ./ 111325;
 		end
-		function ws = scaleW(run,w); % cm/s -> m/day
+		function ws = scaleW(run,w) % cm/s -> m/day
 			ws = w ./ 100 ./ 86400;
 		end
 		
-		function [x1,y1,active] = filterCoordinates(run,x,y);
+		function [x1,y1,active] = filterCoordinates(run,x,y)
 			active = y > run.grid.ymin;
 			y1 = y;
 			x1 = x;
@@ -374,7 +386,7 @@ classdef modelRun_biomas2d < modelRun
 		end		
 
 
-		function ci = tinterp(run,ti,c0,c1);
+		function ci = tinterp(run,ti,c0,c1)
 			% given values c0, c1 at the times of frame0 and frame1, returns
 			% an interpolated value at a time ti in between
 			t0 = run.t(run.loadedN(1));
@@ -389,7 +401,3 @@ classdef modelRun_biomas2d < modelRun
 	end % methods
 
 end % classdef
-
-
-
-
