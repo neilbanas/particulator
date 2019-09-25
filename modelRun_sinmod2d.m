@@ -177,6 +177,10 @@ classdef modelRun_sinmod2d < modelRun
             catch
                 % attribute does not exist => do nothing
             end
+            % convert temperature from Kelvin to degree Celsius
+            if  strcmpi(run.vars.local{vi}, 'temp')
+                c = c - 273.15;
+            end
             netcdf.close(nc);
         end
         
