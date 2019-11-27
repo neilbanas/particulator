@@ -25,20 +25,58 @@ classdef modelRun_romsCascadia < modelRun
 	
 	methods
 	
-		function run = modelRun_romsCascadia(dirname);
+		function run = modelRun_romsCascadia(arg1,arg2);
 			run.outOfBoundsValue = 0; % set this to nan to have interp
 									  % functions fail obviously, 0 to have
 									  % them fail harmlessly
-			% locate file list
-			thefiles = dir([dirname 'ocean_his_*.nc']);
-			run.filename = {thefiles.name};
-			if isempty(run.filename)
-				warning(['no files found at ' dirname 'ocean_his_*.nc']);
-			end
-			run.numFrames = length(run.filename);
-			run.filestep = ones(run.numFrames,1);
-			for i=1:run.numFrames
-				run.filename{i} = [dirname run.filename{i}];
+									  
+			% assemble file list
+			if strcmpi(arg1,'LO') || strcmpi(arg1,'LiveOcean')
+				% LiveOcean format
+				% find the subdirectories in the base directory given as a second argument
+				dirname = arg2;
+				dirlisting = dir(dirname);
+				if isempty({dirlisting.name})
+					warning(['no subdirectories found at ' dirname]);
+				end
+				names = strvcat(dirlisting.name);
+				fsub = find([dirlisting.isdir] & names(:,1)~='.');
+				subdirs = {dirlisting.name};
+				subdirs = subdirs{fsub};
+				% make sure the subdirectories are in numerical order
+				for i=1:length(subdirs)
+					t(i) = datenum(strrep(subdirs{i},'.','/'));
+				end
+				[~,isort] = sort(t);
+				subdirs = subdirs{isort};
+				% for each subdirectory, assemble filenames
+				run.filename = {};
+				for i=1:length(subdirs) 
+					thefiles = dir([dirname subdir{i} '/ocean_his_*.nc']);
+					subfilenames = {thefiles.name};
+					if isempty(subfilenames)
+						warning(['no files found at ' dirname subdir{i} '/ocean_his_*.nc']);
+					end			
+					for j=1:length(subfilenames)
+						run.filename = cat(1,run.filename,[dirname subdir{i} '/' subfilenames{j}]);
+					end
+				end
+				run.numFrames = length(run.filename);
+				run.filestep = ones(run.numFrames,1);				
+			else
+				% one flat list of files, as for the Cascadia runs before LiveOcean
+				dirname = arg1;
+				if nargin > 1, warning('only expecting one input argument.'); end
+				thefiles = dir([dirname 'ocean_his_*.nc']);
+				run.filename = {thefiles.name};
+				if isempty(run.filename)
+					warning(['no files found at ' dirname 'ocean_his_*.nc']);
+				end
+				run.numFrames = length(run.filename);
+				run.filestep = ones(run.numFrames,1);
+				for i=1:run.numFrames
+					run.filename{i} = [dirname run.filename{i}];
+				end
 			end
 			
 			% look in first and last files to get times
