@@ -22,13 +22,14 @@ classdef modelRun_sinmod2d < modelRun
         avg                   % setup for depth-averaging
 
         si                    % scatteredInterpolant objects for fields
-                              % that don't change (H,mask) 
+                              % that don't change (H,mask)
+        dtIn, dtOut           % input and output time steps (in days)
     end
     
     
     methods
     
-        function run = modelRun_sinmod2d(thepath,filenameTemplate,depthRange)
+        function run = modelRun_sinmod2d(thepath,filenameTemplate,depthRange,dtOut)
             %internal name, name inside nc file
             tab = {...
                 'u',      'u_east'; ...
@@ -49,8 +50,12 @@ classdef modelRun_sinmod2d < modelRun
             run.vars.ncname = tab(:,2);
 
             % assemble file list
-            d = dir([thepath filenameTemplate]);
-            filenames = {d.name};
+            if ~iscell(filenameTemplate), filenameTemplate = {filenameTemplate}; end
+            filenames = {};
+            for i = 1:length(filenameTemplate)
+                d = dir([thepath filenameTemplate{i}]);
+                filenames = [filenames, {d.name}];
+            end
             % read timebase from each file
             t = [];
             fileind = [];
@@ -74,6 +79,21 @@ classdef modelRun_sinmod2d < modelRun
             run.fileind = fileind(isort);
             run.filetimeind = filetimeind(isort);
             run.numFrames = length(t);
+            iFiles = unique(run.fileind, 'stable');
+            run.dtIn = [iFiles, NaN(size(iFiles))];
+            
+            for i = 1:length(iFiles)
+                ii = find(run.fileind==iFiles(i), 1, 'first');
+                run.dtIn(i,2) = diff(run.t(ii:ii+1));
+            end
+            
+            % output time step
+            run.dtOut = run.dtIn;
+            try
+                run.dtOut(:,2) = dtOut;
+            catch
+                % same output as input time step
+            end
             
             % read grid
             try
@@ -193,7 +213,6 @@ classdef modelRun_sinmod2d < modelRun
             run.F1.v = run.read('v',n);
             % load Ks
             run.F1.Ks = run.read('Ks',n);
-            run.F1.Ks = zeros(size(run.F1.u));
             % load tracers
             for m=1:length(tracers)
                 run.F1.(tracers{m}) = run.read(tracers{m},n);
