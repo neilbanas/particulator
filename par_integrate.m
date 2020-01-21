@@ -63,11 +63,11 @@ s1 = interpEverything(s1,dt,rel,run);
 steps = saveStep(s1,1,saveToVar,steps,basefilename);
 
 % number of input time steps per output time steps (for temporal averaging)
-dtIn_per_dtOut = run.dtOut;
 try
+    dtIn_per_dtOut = run.dtOut;
     dtIn_per_dtOut(:,2) = run.dtOut(:,2)./run.dtIn(:,2);
 catch
-    dtIn_per_dtOut(:,2) = 1;
+    dtIn_per_dtOut = ones(1,2);
 end
 if  any(abs(dtIn_per_dtOut(:,2)/round(dtIn_per_dtOut(:,2))-1)>1.e-6)
     i = find(abs(dtIn_per_dtOut(:,2)/round(dtIn_per_dtOut(:,2))-1)>1.e-6, 1, 'first');
@@ -98,7 +98,7 @@ for ni = 2:length(nn)
 		s0 = s1;
 		s1 = takeStep(s0,dt,rel,run);
 		s1 = interpEverything(s1,dt,rel,run);
-    end
+	end
 	s1.n = run.loadedN(end);
 	s1.t = repmat(tt(2),size(s1.t));
 		% make sure particles are exactly at the time we think they're at
@@ -115,7 +115,11 @@ for ni = 2:length(nn)
     %    of next averaging interval
     %  - updated 'steps' only contains initial conditions, step averages
     %    and first step of next averaging interval
-    idt = dtIn_per_dtOut(:,1) == run.fileind(run.loadedN(1));
+    if  isfield(run, 'fileind')
+        idt = dtIn_per_dtOut(:,1) == run.fileind(run.loadedN(1));
+    else
+        idt = 1;
+    end
     if  (dtIn_per_dtOut(idt,2)>1) && ((tPassed-run.dtOut(idt,2)>eps) || (ni==length(nn)))
         if  ni==length(nn)
             nSteps = nStep;
